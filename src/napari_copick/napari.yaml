@@ -1,30 +1,12 @@
 name: napari-copick
 display_name: napari copick
-# use 'hidden' to remove plugin from napari hub search results
 visibility: public
-# see https://napari.org/stable/plugins/manifest.html for valid categories
-categories: ["Annotation", "Segmentation", "Acquisition"]
+categories: ["Annotation"]
 contributions:
   commands:
-    - id: napari-copick.make_container_widget
-      python_name: napari_copick:ImageThreshold
-      title: Make threshold Container widget
-    - id: napari-copick.make_magic_widget
-      python_name: napari_copick:threshold_magic_widget
-      title: Make threshold magic widget
-    - id: napari-copick.make_function_widget
-      python_name: napari_copick:threshold_autogenerate_widget
-      title: Make threshold function widget
     - id: napari-copick.make_qwidget
-      python_name: napari_copick:ExampleQWidget
-      title: Make example QWidget
+      python_name: napari_copick:CopickPlugin
+      title: napari copick
   widgets:
-    - command: napari-copick.make_container_widget
-      display_name: Container Threshold
-    - command: napari-copick.make_magic_widget
-      display_name: Magic Threshold
-    - command: napari-copick.make_function_widget
-      autogenerate: true
-      display_name: Autogenerate Threshold
     - command: napari-copick.make_qwidget
-      display_name: Example QWidget
+      display_name: napari copick
