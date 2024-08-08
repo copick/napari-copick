@@ -178,13 +178,15 @@ class CopickPlugin(QWidget):
         scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
         scale_levels.sort(key=int)
 
-        data = [zarr_group[level] for level in scale_levels[2:]]
+        # data = [zarr_group[level] for level in scale_levels[2:]]
 
-        # data = [da.from_zarr(str(zarr_path), level) * (int(level) + 1) / 2 for level in scale_levels]
+        data = [da.from_zarr(str(zarr_path), level) * (int(level) + 1) / 2 for level in scale_levels]
 
         # Highest scale level only
         # data = zarr.open(tomogram.zarr(), 'r')["0"]
 
+        # TODO scale needs to account for scale pyramid (4x for the lowest scale in this case)
+        
         scale = [tomogram.voxel_spacing.meta.voxel_size] * 3
         self.viewer.add_image(
             data, name=f"Tomogram: {tomogram.meta.tomo_type}", scale=scale
