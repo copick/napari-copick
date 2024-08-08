@@ -1,0 +1,297 @@
+import numpy as np
+import copick
+import zarr
+import napari
+import sys
+from qtpy.QtWidgets import QWidget, QPushButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QLabel, QFileDialog, QLineEdit, QMenu, QAction, QDialog, QFormLayout, QComboBox, QSpinBox, QDialogButtonBox
+from qtpy.QtCore import Qt, QPoint
+from copick.impl.filesystem import CopickRootFSSpec
+from napari.utils import DirectLabelColormap
+
+class CopickPlugin(QWidget):
+    def __init__(self, viewer, config_path=None):
+        super().__init__()
+        self.viewer = viewer
+        self.root = None
+        self.selected_run = None
+        self.current_layer = None
+        self.session_id = "17"
+        self.setup_ui()
+        if config_path:
+            self.load_config(config_path)
+
+    def setup_ui(self):
+        layout = QVBoxLayout()
+
+        # Config loading button
+        self.load_button = QPushButton("Load Config")
+        self.load_button.clicked.connect(self.open_file_dialog)
+        layout.addWidget(self.load_button)
+
+        # Run selection text input
+        self.run_entry = QLineEdit()
+        self.run_entry.setPlaceholderText("Enter run name (e.g. TS_100_1)")
+        layout.addWidget(self.run_entry)
+
+        # Button to apply run names
+        self.apply_button = QPushButton("Start copicking!")
+        self.apply_button.clicked.connect(self.apply_run_names)
+        layout.addWidget(self.apply_button)
+
+        # Hierarchical tree view
+        self.tree_view = QTreeWidget()
+        self.tree_view.setHeaderLabel("Copick Project")
+        self.tree_view.itemExpanded.connect(self.handle_item_expand)
+        self.tree_view.itemClicked.connect(self.handle_item_click)
+        self.tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree_view.customContextMenuRequested.connect(self.open_context_menu)
+        layout.addWidget(self.tree_view)
+
+        # Info label
+        self.info_label = QLabel("Select a pick to get started")
+        layout.addWidget(self.info_label)
+
+        self.setLayout(layout)
+
+    def open_file_dialog(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Open Config", "", "JSON Files (*.json)")
+        if path:
+            self.load_config(path)
+
+    def load_config(self, path=None):
+        if path:
+            self.root = CopickRootFSSpec.from_file(path)
+            self.populate_tree()
+
+    def populate_tree(self):
+        self.tree_view.clear()
+        for run in self.root.runs:
+            run_item = QTreeWidgetItem(self.tree_view, [run.meta.name])
+            run_item.setData(0, Qt.UserRole, run)
+            run_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+
+    def handle_item_expand(self, item):
+        data = item.data(0, Qt.UserRole)
+        if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
+            self.expand_run(item, data)
+        elif isinstance(data, copick.impl.filesystem.CopickVoxelSpacingFSSpec):
+            self.expand_voxel_spacing(item, data)
+
+    def expand_run(self, item, run):
+        if not item.childCount():
+            for voxel_spacing in run.voxel_spacings:
+                spacing_item = QTreeWidgetItem(item, [f"Voxel Spacing: {voxel_spacing.meta.voxel_size}"])
+                spacing_item.setData(0, Qt.UserRole, voxel_spacing)
+                spacing_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+            
+            # Add picks nested by user_id, session_id, and pickable_object_name
+            picks = run.picks
+            picks_item = QTreeWidgetItem(item, ["Picks"])
+            user_dict = {}
+            for pick in picks:
+                if pick.meta.user_id not in user_dict:
+                    user_dict[pick.meta.user_id] = {}
+                if pick.meta.session_id not in user_dict[pick.meta.user_id]:
+                    user_dict[pick.meta.user_id][pick.meta.session_id] = []
+                user_dict[pick.meta.user_id][pick.meta.session_id].append(pick)
+
+            for user_id, sessions in user_dict.items():
+                user_item = QTreeWidgetItem(picks_item, [f"User: {user_id}"])
+                for session_id, picks in sessions.items():
+                    session_item = QTreeWidgetItem(user_item, [f"Session: {session_id}"])
+                    for pick in picks:
+                        pick_child = QTreeWidgetItem(session_item, [pick.meta.pickable_object_name])
+                        pick_child.setData(0, Qt.UserRole, pick)
+            item.addChild(picks_item)
+
+    def expand_voxel_spacing(self, item, voxel_spacing):
+        if not item.childCount():
+            tomogram_item = QTreeWidgetItem(item, ["Tomograms"])
+            for tomogram in voxel_spacing.tomograms:
+                tomo_child = QTreeWidgetItem(tomogram_item, [tomogram.meta.tomo_type])
+                tomo_child.setData(0, Qt.UserRole, tomogram)
+            item.addChild(tomogram_item)
+            
+            segmentation_item = QTreeWidgetItem(item, ["Segmentations"])
+            segmentations = voxel_spacing.run.get_segmentations(voxel_size=voxel_spacing.meta.voxel_size)
+            for segmentation in segmentations:
+                seg_child = QTreeWidgetItem(segmentation_item, [segmentation.meta.name])
+                seg_child.setData(0, Qt.UserRole, segmentation)
+            item.addChild(segmentation_item)
+
+    def handle_item_click(self, item, column):
+        data = item.data(0, Qt.UserRole)
+        if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
+            self.info_label.setText(f"Run: {data.meta.name}")
+            self.selected_run = data
+        elif isinstance(data, copick.impl.filesystem.CopickVoxelSpacingFSSpec):
+            self.info_label.setText(f"Voxel Spacing: {data.meta.voxel_size}")
+            self.lazy_load_voxel_spacing(item, data)
+        elif isinstance(data, copick.impl.filesystem.CopickTomogramFSSpec):
+            self.load_tomogram(data)
+        elif isinstance(data, copick.impl.filesystem.CopickSegmentationFSSpec):
+            self.load_segmentation(data)
+        elif isinstance(data, copick.impl.filesystem.CopickPicksFSSpec):
+            parent_run = self.get_parent_run(item)
+            self.load_picks(data, parent_run)
+
+    def get_parent_run(self, item):
+        while item:
+            data = item.data(0, Qt.UserRole)
+            if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
+                return data
+            item = item.parent()
+        return None
+
+    def lazy_load_voxel_spacing(self, item, voxel_spacing):
+        if not item.childCount():
+            self.expand_voxel_spacing(item, voxel_spacing)
+
+    def load_tomogram(self, tomogram):
+        data = zarr.open(tomogram.zarr(), 'r')["0"]
+        scale = [tomogram.voxel_spacing.meta.voxel_size] * 3
+        self.viewer.add_image(data, name=f"Tomogram: {tomogram.meta.tomo_type}", scale=scale)
+        self.info_label.setText(f"Loaded Tomogram: {tomogram.meta.tomo_type}")
+
+    def load_segmentation(self, segmentation):
+        data = zarr.open(segmentation.zarr().path, 'r')['data']
+        scale = [segmentation.meta.voxel_size] * 3
+        
+        # Create a color map based on copick colors
+        colormap = self.get_copick_colormap()
+        painting_layer = self.viewer.add_labels(data, name=f"Segmentation: {segmentation.meta.name}", scale=scale)
+        painting_layer.colormap = DirectLabelColormap(color_dict=colormap)
+        painting_layer.painting_labels = [obj.label for obj in self.root.config.pickable_objects]
+        self.class_labels_mapping = {obj.label: obj.name for obj in self.root.config.pickable_objects}
+
+        self.info_label.setText(f"Loaded Segmentation: {segmentation.meta.name}")
+
+    def get_copick_colormap(self, pickable_objects=None):
+        if not pickable_objects:
+            pickable_objects = self.root.config.pickable_objects
+        colormap = {obj.label: np.array(obj.color)/255.0 for obj in pickable_objects}
+        colormap[None] = np.array([1, 1, 1, 1])
+        return colormap
+
+    def load_picks(self, pick_set, parent_run):
+        if parent_run is not None:
+            if pick_set:
+                if pick_set.points:
+                    points = [(p.location.z, p.location.y, p.location.x) for p in pick_set.points]
+                    color = pick_set.color if pick_set.color else (255, 255, 255, 255)  # Default to white if color is not set
+                    colors = np.tile(np.array([color[0] / 255.0, color[1] / 255.0, color[2] / 255.0, color[3] / 255.0]), (len(points), 1))  # Create an array with the correct shape
+                    pickable_object = [obj for obj in self.root.pickable_objects if obj.name == pick_set.pickable_object_name][0]
+                    point_size = pickable_object.radius
+                    self.viewer.add_points(points, name=f"Picks: {pick_set.meta.pickable_object_name}", size=point_size, face_color=colors, out_of_slice_display=True)
+                    self.info_label.setText(f"Loaded Picks: {pick_set.meta.pickable_object_name}")
+                else:
+                    self.info_label.setText(f"No points found for Picks: {pick_set.meta.pickable_object_name}")
+            else:
+                self.info_label.setText(f"No pick set found for Picks: {pick_set.meta.pickable_object_name}")
+        else:
+            self.info_label.setText("No parent run found")
+        
+    def get_color(self, pick):
+        for obj in self.root.pickable_objects:
+            if obj.name == pick.meta.object_name:
+                return obj.color
+        return "white"
+
+    def apply_run_names(self):
+        run_names = self.run_entry.text().split(',')
+        self.root._runs = [self.get_run(name) for name in run_names]
+        self.populate_tree()
+
+    def get_run(self, name):
+        rm = copick.models.CopickRunMeta(name=name)
+        return copick.impl.filesystem.CopickRunFSSpec(root=self.root, meta=rm)
+
+    def open_context_menu(self, position):
+        item = self.tree_view.itemAt(position)
+        if not item:
+            return
+
+        data = item.data(0, Qt.UserRole)
+        if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
+            if item.text(0) == "Segmentations" or item.text(0) == "Picks":
+                context_menu = QMenu(self.tree_view)
+                if item.text(0) == "Segmentations":
+                    create_seg_action = QAction("Create New Segmentation", self.tree_view)
+                    create_seg_action.triggered.connect(lambda: self.show_segmentation_dialog(data))
+                    context_menu.addAction(create_seg_action)
+                elif item.text(0) == "Picks":
+                    create_picks_action = QAction("Create New Picks", self.tree_view)
+                    create_picks_action.triggered.connect(lambda: self.show_picks_dialog(data))
+                    context_menu.addAction(create_picks_action)
+                context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
+
+    def show_segmentation_dialog(self, run):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Create New Segmentation")
+
+        layout = QFormLayout(dialog)
+        name_input = QLineEdit(dialog)
+        name_input.setText("segmentation")
+        layout.addRow("Name:", name_input)
+
+        session_input = QSpinBox(dialog)
+        session_input.setValue(0)
+        layout.addRow("Session ID:", session_input)
+
+        user_input = QLineEdit(dialog)
+        user_input.setText("napariCopick")
+        layout.addRow("User ID:", user_input)
+
+        voxel_size_input = QComboBox(dialog)
+        for voxel_spacing in run.voxel_spacings:
+            voxel_size_input.addItem(str(voxel_spacing.meta.voxel_size))
+        layout.addRow("Voxel Size:", voxel_size_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
+        buttons.accepted.connect(lambda: self.create_segmentation(dialog, run, name_input.text(), session_input.value(), user_input.text(), float(voxel_size_input.currentText())))
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        dialog.exec_()
+
+    def create_segmentation(self, dialog, run, name, session_id, user_id, voxel_size):
+        run.new_segmentation(voxel_size=voxel_size, name=name, session_id=session_id, is_multilabel=True, user_id=user_id)
+        self.populate_tree()
+        dialog.accept()
+
+    def show_picks_dialog(self, run):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Create New Picks")
+
+        layout = QFormLayout(dialog)
+        object_name_input = QComboBox(dialog)
+        for obj in self.root.config.pickable_objects:
+            object_name_input.addItem(obj.name)
+        layout.addRow("Object Name:", object_name_input)
+
+        session_input = QSpinBox(dialog)
+        session_input.setValue(0)
+        layout.addRow("Session ID:", session_input)
+
+        user_input = QLineEdit(dialog)
+        user_input.setText("napariCopick")
+        layout.addRow("User ID:", user_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
+        buttons.accepted.connect(lambda: self.create_picks(dialog, run, object_name_input.currentText(), session_input.value(), user_input.text()))
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        dialog.exec_()
+
+    def create_picks(self, dialog, run, object_name, session_id, user_id):
+        run.new_picks(object_name=object_name, session_id=session_id, user_id=user_id)
+        self.populate_tree()
+        dialog.accept()
+
+if __name__ == "__main__":
+    config_path = "/Users/kharrington/Data/copick/external_hd_pickathon_v1.json"
+    viewer = napari.Viewer()
+    copick_plugin = CopickPlugin(viewer, config_path)
+    viewer.window.add_dock_widget(copick_plugin, area='right')
+    napari.run()
