@@ -5,7 +5,6 @@ import napari
 import sys
 from qtpy.QtWidgets import QWidget, QPushButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QLabel, QFileDialog, QLineEdit, QMenu, QAction, QFormLayout, QComboBox, QSpinBox
 from qtpy.QtCore import Qt, QPoint
-from copick.impl.filesystem import CopickRootFSSpec
 from napari.utils import DirectLabelColormap
 
 class CopickPlugin(QWidget):
@@ -50,7 +49,7 @@ class CopickPlugin(QWidget):
 
     def load_config(self, path=None):
         if path:
-            self.root = CopickRootFSSpec.from_file(path)
+            self.root = copick.from_file(path)
             self.populate_tree()
 
     def populate_tree(self):
@@ -62,9 +61,9 @@ class CopickPlugin(QWidget):
 
     def handle_item_expand(self, item):
         data = item.data(0, Qt.UserRole)
-        if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
+        if isinstance(data, copick.models.CopickRun):
             self.expand_run(item, data)
-        elif isinstance(data, copick.impl.filesystem.CopickVoxelSpacingFSSpec):
+        elif isinstance(data, copick.models.CopickVoxelSpacing):
             self.expand_voxel_spacing(item, data)
 
     def expand_run(self, item, run):
@@ -111,24 +110,24 @@ class CopickPlugin(QWidget):
 
     def handle_item_click(self, item, column):
         data = item.data(0, Qt.UserRole)
-        if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
+        if isinstance(data, copick.models.CopickRun):
             self.info_label.setText(f"Run: {data.meta.name}")
             self.selected_run = data
-        elif isinstance(data, copick.impl.filesystem.CopickVoxelSpacingFSSpec):
+        elif isinstance(data, copick.models.CopickVoxelSpacing):
             self.info_label.setText(f"Voxel Spacing: {data.meta.voxel_size}")
             self.lazy_load_voxel_spacing(item, data)
-        elif isinstance(data, copick.impl.filesystem.CopickTomogramFSSpec):
+        elif isinstance(data, copick.models.CopickTomogram):
             self.load_tomogram(data)
-        elif isinstance(data, copick.impl.filesystem.CopickSegmentationFSSpec):
+        elif isinstance(data, copick.models.CopickSegmentation):
             self.load_segmentation(data)
-        elif isinstance(data, copick.impl.filesystem.CopickPicksFSSpec):
+        elif isinstance(data, copick.models.CopickPicks):
             parent_run = self.get_parent_run(item)
             self.load_picks(data, parent_run)
 
     def get_parent_run(self, item):
         while item:
             data = item.data(0, Qt.UserRole)
-            if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
+            if isinstance(data, copick.overlay.CopickRun):
                 return data
             item = item.parent()
         return None
@@ -192,9 +191,8 @@ class CopickPlugin(QWidget):
                 return obj.color
         return "white"
 
-    def get_run(self, name):
-        rm = copick.models.CopickRunMeta(name=name)
-        return copick.impl.filesystem.CopickRunFSSpec(root=self.root, meta=rm)
+    def get_run(self, name):        
+        return self.root.get_run(name)
 
     def open_context_menu(self, position):
         print("Opening context menu")
@@ -292,8 +290,16 @@ class CopickPlugin(QWidget):
         widget.close()
 
 if __name__ == "__main__":
-    config_path = "/Users/kharrington/Data/copick/external_hd_pickathon_v1.json"
+    import argparse
+
+    # parser = argparse.ArgumentParser(description='Copick Plugin')
+    # parser.add_argument('--config_path', type=str, required=True, help='Path to the copick config file')
+    # args = parser.parse_args()
+
+    config_path = "/Users/kharrington/Data/copick/chlamy_10301.json"
+    
     viewer = napari.Viewer()
-    copick_plugin = CopickPlugin(viewer, config_path)
+    copick_plugin = CopickPlugin(viewer, config_path=config_path)
+    # copick_plugin = CopickPlugin(viewer, config_path=args.config_path)
     viewer.window.add_dock_widget(copick_plugin, area='right')
-    # napari.run()
+    napari.run()
