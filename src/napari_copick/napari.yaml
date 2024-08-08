@@ -1,5 +1,5 @@
 name: napari-copick
-display_name: napari copick
+display_name: copick
 visibility: public
 categories: ["Annotation"]
 contributions:

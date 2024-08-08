@@ -28,16 +28,6 @@ class CopickPlugin(QWidget):
         self.load_button.clicked.connect(self.open_file_dialog)
         layout.addWidget(self.load_button)
 
-        # Run selection text input
-        self.run_entry = QLineEdit()
-        self.run_entry.setPlaceholderText("Enter run name (e.g. TS_100_1)")
-        layout.addWidget(self.run_entry)
-
-        # Button to apply run names
-        self.apply_button = QPushButton("Start copicking!")
-        self.apply_button.clicked.connect(self.apply_run_names)
-        layout.addWidget(self.apply_button)
-
         # Hierarchical tree view
         self.tree_view = QTreeWidget()
         self.tree_view.setHeaderLabel("Copick Project")
@@ -201,11 +191,6 @@ class CopickPlugin(QWidget):
             if obj.name == pick.meta.object_name:
                 return obj.color
         return "white"
-
-    def apply_run_names(self):
-        run_names = self.run_entry.text().split(',')
-        self.root._runs = [self.get_run(name) for name in run_names]
-        self.populate_tree()
 
     def get_run(self, name):
         rm = copick.models.CopickRunMeta(name=name)
