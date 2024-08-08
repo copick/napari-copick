@@ -154,9 +154,14 @@ class CopickPlugin(QWidget):
         self.info_label.setText(f"Loaded Tomogram: {tomogram.meta.tomo_type}")
 
     def load_segmentation(self, segmentation):
-        data = zarr.open(segmentation.zarr().path, 'r')['data']
+        zarr_data = zarr.open(segmentation.zarr().path, 'r')
+        if 'data' in zarr_data:
+            data = zarr_data['data']
+        else:
+            data = zarr_data[:]
+
         scale = [segmentation.meta.voxel_size] * 3
-        
+
         # Create a color map based on copick colors
         colormap = self.get_copick_colormap()
         painting_layer = self.viewer.add_labels(data, name=f"Segmentation: {segmentation.meta.name}", scale=scale)
@@ -282,7 +287,17 @@ class CopickPlugin(QWidget):
         self.viewer.window.add_dock_widget(widget, area='right')
 
     def create_segmentation(self, widget, run, name, session_id, user_id, voxel_size):
-        run.new_segmentation(voxel_size=voxel_size, name=name, session_id=str(session_id), is_multilabel=True, user_id=user_id)
+        seg = run.new_segmentation(voxel_size=voxel_size, name=name, session_id=str(session_id), is_multilabel=True, user_id=user_id)
+
+        tomo = zarr.open(run.voxel_spacings[0].tomograms[0].zarr().path, "r")["0"]
+        
+        shape = tomo.shape
+        dtype = np.int32
+
+        # Create an empty Zarr array for the segmentation
+        zarr_file = zarr.open(seg.zarr().path, mode='w')
+        zarr_file.create_dataset('data', shape=shape, dtype=dtype, chunks=(128, 128, 128), fill_value=0)
+
         self.populate_tree()
         widget.close()
 
