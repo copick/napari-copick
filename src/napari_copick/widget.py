@@ -178,9 +178,9 @@ class CopickPlugin(QWidget):
         scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
         scale_levels.sort(key=int)
 
-        # data = [zarr_group[level] for level in scale_levels[2:]]
+        data = [zarr_group[level] for level in scale_levels]
 
-        data = [da.from_zarr(str(zarr_path), level) * (int(level) + 1) / 2 for level in scale_levels]
+        # data = [da.from_zarr(str(zarr_path), level) * (int(level) + 1) / 2 for level in scale_levels]
 
         # Highest scale level only
         # data = zarr.open(tomogram.zarr(), 'r')["0"]
