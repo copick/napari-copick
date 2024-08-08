@@ -161,7 +161,7 @@ class CopickPlugin(QWidget):
     def get_parent_run(self, item):
         while item:
             data = item.data(0, Qt.UserRole)
-            if isinstance(data, copick.overlay.CopickRun):
+            if isinstance(data, copick.models.CopickRun):
                 return data
             item = item.parent()
         return None
@@ -178,7 +178,7 @@ class CopickPlugin(QWidget):
         scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
         scale_levels.sort(key=int)
 
-        data = [zarr_group[level] for level in scale_levels]
+        data = [zarr_group[level] for level in scale_levels[2:]]
 
         # data = [da.from_zarr(str(zarr_path), level) * (int(level) + 1) / 2 for level in scale_levels]
 
@@ -434,6 +434,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # config_path = "/Users/kharrington/Data/copick/chlamy_10301.json"
+    # config_path = "/Volumes/CZII_A/cellcanvas_tutorial/copick-local.json"
 
     viewer = napari.Viewer()
     # copick_plugin = CopickPlugin(viewer, config_path=config_path)
