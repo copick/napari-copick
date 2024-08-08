@@ -3,7 +3,7 @@ import copick
 import zarr
 import napari
 import sys
-from qtpy.QtWidgets import QWidget, QPushButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QLabel, QFileDialog, QLineEdit, QMenu, QAction, QDialog, QFormLayout, QComboBox, QSpinBox, QDialogButtonBox
+from qtpy.QtWidgets import QWidget, QPushButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QLabel, QFileDialog, QLineEdit, QMenu, QAction, QFormLayout, QComboBox, QSpinBox
 from qtpy.QtCore import Qt, QPoint
 from copick.impl.filesystem import CopickRootFSSpec
 from napari.utils import DirectLabelColormap
@@ -207,91 +207,93 @@ class CopickPlugin(QWidget):
         return copick.impl.filesystem.CopickRunFSSpec(root=self.root, meta=rm)
 
     def open_context_menu(self, position):
+        print("Opening context menu")
         item = self.tree_view.itemAt(position)
         if not item:
             return
 
-        data = item.data(0, Qt.UserRole)
-        if isinstance(data, copick.impl.filesystem.CopickRunFSSpec):
-            if item.text(0) == "Segmentations" or item.text(0) == "Picks":
-                context_menu = QMenu(self.tree_view)
-                if item.text(0) == "Segmentations":
-                    create_seg_action = QAction("Create New Segmentation", self.tree_view)
-                    create_seg_action.triggered.connect(lambda: self.show_segmentation_dialog(data))
-                    context_menu.addAction(create_seg_action)
-                elif item.text(0) == "Picks":
-                    create_picks_action = QAction("Create New Picks", self.tree_view)
-                    create_picks_action.triggered.connect(lambda: self.show_picks_dialog(data))
-                    context_menu.addAction(create_picks_action)
-                context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
+        if self.is_segmentations_or_picks_item(item):
+            context_menu = QMenu(self.tree_view)            
+            if item.text(0) == "Segmentations":
+                run_name = item.parent().parent().text(0)
+                run = self.root.get_run(run_name)
+                self.show_segmentation_widget(run)
+            elif item.text(0) == "Picks":
+                run_name = item.parent().text(0)
+                run = self.root.get_run(run_name)
+                self.show_picks_widget(run)
+            context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
 
-    def show_segmentation_dialog(self, run):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Create New Segmentation")
+    def is_segmentations_or_picks_item(self, item):
+        if item.text(0) == "Segmentations" or item.text(0) == "Picks":
+            return True
+        return False
 
-        layout = QFormLayout(dialog)
-        name_input = QLineEdit(dialog)
+    def show_segmentation_widget(self, run):
+        widget = QWidget()
+        widget.setWindowTitle("Create New Segmentation")
+
+        layout = QFormLayout(widget)
+        name_input = QLineEdit(widget)
         name_input.setText("segmentation")
         layout.addRow("Name:", name_input)
 
-        session_input = QSpinBox(dialog)
+        session_input = QSpinBox(widget)
         session_input.setValue(0)
         layout.addRow("Session ID:", session_input)
 
-        user_input = QLineEdit(dialog)
+        user_input = QLineEdit(widget)
         user_input.setText("napariCopick")
         layout.addRow("User ID:", user_input)
 
-        voxel_size_input = QComboBox(dialog)
+        voxel_size_input = QComboBox(widget)
         for voxel_spacing in run.voxel_spacings:
             voxel_size_input.addItem(str(voxel_spacing.meta.voxel_size))
         layout.addRow("Voxel Size:", voxel_size_input)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
-        buttons.accepted.connect(lambda: self.create_segmentation(dialog, run, name_input.text(), session_input.value(), user_input.text(), float(voxel_size_input.currentText())))
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
+        create_button = QPushButton("Create", widget)
+        create_button.clicked.connect(lambda: self.create_segmentation(widget, run, name_input.text(), session_input.value(), user_input.text(), float(voxel_size_input.currentText())))
+        layout.addWidget(create_button)
 
-        dialog.exec_()
+        self.viewer.window.add_dock_widget(widget, area='right')
 
-    def create_segmentation(self, dialog, run, name, session_id, user_id, voxel_size):
-        run.new_segmentation(voxel_size=voxel_size, name=name, session_id=session_id, is_multilabel=True, user_id=user_id)
-        self.populate_tree()
-        dialog.accept()
+    def show_picks_widget(self, run):
+        widget = QWidget()
+        widget.setWindowTitle("Create New Picks")
 
-    def show_picks_dialog(self, run):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Create New Picks")
-
-        layout = QFormLayout(dialog)
-        object_name_input = QComboBox(dialog)
+        layout = QFormLayout(widget)
+        object_name_input = QComboBox(widget)
         for obj in self.root.config.pickable_objects:
             object_name_input.addItem(obj.name)
         layout.addRow("Object Name:", object_name_input)
 
-        session_input = QSpinBox(dialog)
+        session_input = QSpinBox(widget)
         session_input.setValue(0)
         layout.addRow("Session ID:", session_input)
 
-        user_input = QLineEdit(dialog)
+        user_input = QLineEdit(widget)
         user_input.setText("napariCopick")
         layout.addRow("User ID:", user_input)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
-        buttons.accepted.connect(lambda: self.create_picks(dialog, run, object_name_input.currentText(), session_input.value(), user_input.text()))
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
+        create_button = QPushButton("Create", widget)
+        create_button.clicked.connect(lambda: self.create_picks(widget, run, object_name_input.currentText(), session_input.value(), user_input.text()))
+        layout.addWidget(create_button)
 
-        dialog.exec_()
+        self.viewer.window.add_dock_widget(widget, area='right')
 
-    def create_picks(self, dialog, run, object_name, session_id, user_id):
-        run.new_picks(object_name=object_name, session_id=session_id, user_id=user_id)
+    def create_segmentation(self, widget, run, name, session_id, user_id, voxel_size):
+        run.new_segmentation(voxel_size=voxel_size, name=name, session_id=str(session_id), is_multilabel=True, user_id=user_id)
         self.populate_tree()
-        dialog.accept()
+        widget.close()
+
+    def create_picks(self, widget, run, object_name, session_id, user_id):
+        run.new_picks(object_name=object_name, session_id=str(session_id), user_id=user_id)
+        self.populate_tree()
+        widget.close()
 
 if __name__ == "__main__":
     config_path = "/Users/kharrington/Data/copick/external_hd_pickathon_v1.json"
     viewer = napari.Viewer()
     copick_plugin = CopickPlugin(viewer, config_path)
     viewer.window.add_dock_widget(copick_plugin, area='right')
-    napari.run()
+    # napari.run()
