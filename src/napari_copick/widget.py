@@ -259,7 +259,8 @@ class CopickPlugin(QWidget):
                         for obj in self.root.pickable_objects
                         if obj.name == pick_set.pickable_object_name
                     ][0]
-                    point_size = pickable_object.radius
+                    # TODO hardcoded default point size
+                    point_size = pickable_object.radius if pickable_object.radius else 50
                     self.viewer.add_points(
                         points,
                         name=f"Picks: {pick_set.meta.pickable_object_name}",
@@ -433,13 +434,15 @@ if __name__ == "__main__":
         required=True,
         help="Path to the copick config file",
     )
-    args = parser.parse_args()
+    # args = parser.parse_args()
 
+    config_path = None
     # config_path = "/Users/kharrington/Data/copick/chlamy_10301.json"
     # config_path = "/Volumes/CZII_A/cellcanvas_tutorial/copick-local.json"
+    config_path = "/Users/kharrington/Data/copick/synthetic_data_10439.json"
 
     viewer = napari.Viewer()
     # copick_plugin = CopickPlugin(viewer, config_path=config_path)
-    copick_plugin = CopickPlugin(viewer, config_path=args.config_path)
+    copick_plugin = CopickPlugin(viewer, config_path=(args.config_path if config_path is None else config_path))
     viewer.window.add_dock_widget(copick_plugin, area="right")
     napari.run()
