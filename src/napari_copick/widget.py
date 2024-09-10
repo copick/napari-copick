@@ -434,12 +434,12 @@ if __name__ == "__main__":
         required=True,
         help="Path to the copick config file",
     )
-    # args = parser.parse_args()
+    args = parser.parse_args()
 
     config_path = None
     # config_path = "/Users/kharrington/Data/copick/chlamy_10301.json"
     # config_path = "/Volumes/CZII_A/cellcanvas_tutorial/copick-local.json"
-    config_path = "/Users/kharrington/Data/copick/synthetic_data_10439.json"
+    # config_path = "/Users/kharrington/Data/copick/synthetic_data_10439.json"
 
     viewer = napari.Viewer()
     # copick_plugin = CopickPlugin(viewer, config_path=config_path)
