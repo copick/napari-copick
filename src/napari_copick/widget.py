@@ -24,9 +24,13 @@ from napari.utils import DirectLabelColormap
 
 
 class CopickPlugin(QWidget):
-    def __init__(self, viewer, config_path=None):
+    def __init__(self, viewer=None, config_path=None):
         super().__init__()
-        self.viewer = viewer
+        if viewer:
+            self.viewer = viewer
+        else:
+            self.viewer = napari.Viewer()
+
         self.root = None
         self.selected_run = None
         self.current_layer = None
@@ -171,36 +175,20 @@ class CopickPlugin(QWidget):
             self.expand_voxel_spacing(item, voxel_spacing)
 
     def load_tomogram(self, tomogram):
-        zarr_path = tomogram.zarr()
-        zarr_group = zarr.open(zarr_path, "r")
+        zarr_path = tomogram.zarr().path
 
-        # Determine the number of scale levels
-        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
-        scale_levels.sort(key=int)
+        self.viewer.open(zarr_path, plugin="napari-ome-zarr")
 
-        data = [zarr_group[level] for level in scale_levels]
-
-        # data = [da.from_zarr(str(zarr_path), level) * (int(level) + 1) / 2 for level in scale_levels]
-
-        # Highest scale level only
-        # data = zarr.open(tomogram.zarr(), 'r')["0"]
-
-        # TODO scale needs to account for scale pyramid (4x for the lowest scale in this case)
-        
-        scale = [tomogram.voxel_spacing.meta.voxel_size] * 3
-        self.viewer.add_image(
-            data, name=f"Tomogram: {tomogram.meta.tomo_type}", scale=scale
-        )
         self.info_label.setText(
             f"Loaded Tomogram: {tomogram.meta.tomo_type} with num scales = {len(scale_levels)}"
         )
 
     def load_segmentation(self, segmentation):
-        zarr_data = zarr.open(segmentation.zarr().path, "r")
+        zarr_data = zarr.open(segmentation.zarr().path, "r+")
         if "data" in zarr_data:
             data = zarr_data["data"]
         else:
-            data = zarr_data[:]
+            data = zarr_data["0"]
 
         scale = [segmentation.meta.voxel_size] * 3
 
