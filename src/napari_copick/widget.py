@@ -176,6 +176,11 @@ class CopickPlugin(QWidget):
 
     def load_tomogram(self, tomogram):
         zarr_path = tomogram.zarr().path
+        zarr_group = zarr.open(zarr_path, "r")
+
+        # Determine the number of scale levels
+        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
+        scale_levels.sort(key=int)
 
         self.viewer.open(zarr_path, plugin="napari-ome-zarr")
 
