@@ -56,6 +56,17 @@ The plugin provides an intuitive interface with two loading options:
 
 After loading, you'll see a hierarchical tree of the project structure that you can navigate to access tomograms, segmentations, and picks.
 
+### Tomogram Handling
+
+napari-copick now handles multiscale zarr arrays directly:
+
+- Automatically detects and loads all available resolution levels
+- Creates a proper multiscale image stack using napari's native multiscale API
+- Uses dask for efficient lazy loading of large tomogram data
+- Applies appropriate scaling factors based on the voxel size metadata
+
+This direct zarr handling provides better performance and more flexibility compared to relying on external plugins.
+
 ## Contributing
 
 Contributions are very welcome. Tests can be run with [tox], please ensure

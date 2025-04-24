@@ -4,7 +4,7 @@ import copick
 import zarr
 import napari
 import sys
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Tuple
 from qtpy.QtWidgets import (
     QWidget,
     QPushButton,
@@ -250,6 +250,10 @@ class CopickPlugin(QWidget):
             self.expand_voxel_spacing(item, voxel_spacing)
 
     def load_tomogram(self, tomogram):
+        """
+        Load a tomogram directly using napari's multiscale API instead of using napari-ome-zarr.
+        This handles the multiscale zarr arrays directly.
+        """
         zarr_path = tomogram.zarr().path
         zarr_group = zarr.open(zarr_path, "r")
 
@@ -257,10 +261,47 @@ class CopickPlugin(QWidget):
         scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
         scale_levels.sort(key=int)
 
-        self.viewer.open(zarr_path, plugin="napari-ome-zarr")
+        if not scale_levels:
+            self.info_label.setText(f"Error: No scale levels found in tomogram: {tomogram.meta.tomo_type}")
+            return
+
+        # Calculate scaling factors between resolution levels
+        all_arrays = []
+        all_data = []
+
+        # Get the highest resolution data
+        base_array = zarr_group[scale_levels[0]]
+        base_shape = base_array.shape
+        
+        # Calculate voxel size from metadata or fallback to uniform scaling
+        voxel_size = [tomogram.meta.voxel_spacing.meta.voxel_size] * 3
+        
+        # Collect all scale levels and calculate scale factors
+        scales = []
+        for level in scale_levels:
+            array = zarr_group[level]
+            # Create Dask array for lazy loading
+            dask_array = da.from_array(array, chunks=array.chunks)
+            all_arrays.append(array)
+            all_data.append(dask_array)
+            
+            # Calculate scale relative to the base level
+            scale_factor = [
+                bs / s for bs, s in zip(base_shape, array.shape)
+            ]
+            scales.append(scale_factor)
+
+        # Add multiscale image to the viewer
+        layer = self.viewer.add_image(
+            all_data,
+            scale=voxel_size,
+            multiscale=True,
+            name=f"Tomogram: {tomogram.meta.tomo_type}",
+            contrast_limits=[np.min(all_data[0]), np.max(all_data[0])],
+        )
 
         self.info_label.setText(
-            f"Loaded Tomogram: {tomogram.meta.tomo_type} with num scales = {len(scale_levels)}"
+            f"Loaded Tomogram: {tomogram.meta.tomo_type} with {len(scale_levels)} scale levels"
         )
 
     def load_segmentation(self, segmentation):
