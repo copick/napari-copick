@@ -27,12 +27,34 @@ You can install `napari-copick` via [pip]:
 
     pip install napari-copick
 
-
-
-To install latest development version :
+To install latest development version:
 
     pip install git+https://github.com/kephale/napari-copick.git
 
+## Usage
+
+### Using a copick config file
+
+```bash
+python -m napari_copick.widget --config_path path/to/copick_config.json
+```
+
+### Using dataset IDs from CZ cryoET Data Portal
+
+```bash
+python -m napari_copick.widget --dataset_ids 10440 10441 --overlay_root /path/to/overlay_root
+```
+
+You can specify multiple dataset IDs separated by spaces.
+
+### GUI Usage
+
+The plugin provides an intuitive interface with two loading options:
+
+1. **Load Config File**: Opens a file dialog to select a copick configuration JSON file
+2. **Load from Dataset IDs**: Opens a dialog to enter CZ cryoET Data Portal dataset IDs and overlay root path
+
+After loading, you'll see a hierarchical tree of the project structure that you can navigate to access tomograms, segmentations, and picks.
 
 ## Contributing
 

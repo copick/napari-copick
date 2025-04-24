@@ -4,6 +4,7 @@ import copick
 import zarr
 import napari
 import sys
+from typing import List, Optional
 from qtpy.QtWidgets import (
     QWidget,
     QPushButton,
@@ -18,13 +19,56 @@ from qtpy.QtWidgets import (
     QFormLayout,
     QComboBox,
     QSpinBox,
+    QHBoxLayout,
+    QDialog,
+    QDialogButtonBox,
+    QGridLayout,
+    QCheckBox,
 )
 from qtpy.QtCore import Qt, QPoint
 from napari.utils import DirectLabelColormap
 
 
+class DatasetIdDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Load from Dataset IDs")
+        self.setMinimumWidth(400)
+        
+        layout = QVBoxLayout()
+        
+        # Dataset IDs input
+        form_layout = QFormLayout()
+        self.dataset_ids_input = QLineEdit()
+        self.dataset_ids_input.setPlaceholderText("10000, 10001, ...")
+        form_layout.addRow("Dataset IDs (comma separated):", self.dataset_ids_input)
+        
+        # Overlay root input
+        self.overlay_root_input = QLineEdit()
+        self.overlay_root_input.setText("/tmp/overlay_root")
+        form_layout.addRow("Overlay Root:", self.overlay_root_input)
+        
+        layout.addLayout(form_layout)
+        
+        # Buttons
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        
+        self.setLayout(layout)
+    
+    def get_values(self):
+        dataset_ids_text = self.dataset_ids_input.text()
+        dataset_ids = [int(id.strip()) for id in dataset_ids_text.split(',') if id.strip()]
+        overlay_root = self.overlay_root_input.text()
+        return dataset_ids, overlay_root
+
+
 class CopickPlugin(QWidget):
-    def __init__(self, viewer=None, config_path=None):
+    def __init__(self, viewer=None, config_path=None, dataset_ids=None, overlay_root="/tmp/overlay_root"):
         super().__init__()
         if viewer:
             self.viewer = viewer
@@ -36,16 +80,29 @@ class CopickPlugin(QWidget):
         self.current_layer = None
         self.session_id = "17"
         self.setup_ui()
+        
         if config_path:
-            self.load_config(config_path)
+            self.load_config(config_path=config_path)
+        elif dataset_ids:
+            self.load_from_dataset_ids(dataset_ids=dataset_ids, overlay_root=overlay_root)
 
     def setup_ui(self):
         layout = QVBoxLayout()
 
-        # Config loading button
-        self.load_button = QPushButton("Load Config")
-        self.load_button.clicked.connect(self.open_file_dialog)
-        layout.addWidget(self.load_button)
+        # Config loading options
+        load_options_layout = QHBoxLayout()
+        
+        # Config file button
+        self.load_config_button = QPushButton("Load Config File")
+        self.load_config_button.clicked.connect(self.open_file_dialog)
+        load_options_layout.addWidget(self.load_config_button)
+        
+        # Dataset IDs button
+        self.load_dataset_button = QPushButton("Load from Dataset IDs")
+        self.load_dataset_button.clicked.connect(self.open_dataset_dialog)
+        load_options_layout.addWidget(self.load_dataset_button)
+        
+        layout.addLayout(load_options_layout)
 
         # Hierarchical tree view
         self.tree_view = QTreeWidget()
@@ -69,12 +126,30 @@ class CopickPlugin(QWidget):
             self, "Open Config", "", "JSON Files (*.json)"
         )
         if path:
-            self.load_config(path)
+            self.load_config(config_path=path)
 
-    def load_config(self, path=None):
-        if path:
-            self.root = copick.from_file(path)
+    def open_dataset_dialog(self):
+        dialog = DatasetIdDialog(self)
+        if dialog.exec_():
+            dataset_ids, overlay_root = dialog.get_values()
+            if dataset_ids:
+                self.load_from_dataset_ids(dataset_ids=dataset_ids, overlay_root=overlay_root)
+
+    def load_config(self, config_path=None):
+        if config_path:
+            self.root = copick.from_file(config_path)
             self.populate_tree()
+            self.info_label.setText(f"Loaded config from {config_path}")
+
+    def load_from_dataset_ids(self, dataset_ids=None, overlay_root="/tmp/overlay_root"):
+        if dataset_ids:
+            self.root = copick.from_czcdp_datasets(
+                dataset_ids=dataset_ids,
+                overlay_root=overlay_root,
+                overlay_fs_args={"auto_mkdir": True},
+            )
+            self.populate_tree()
+            self.info_label.setText(f"Loaded project from dataset IDs: {', '.join(map(str, dataset_ids))}")
 
     def populate_tree(self):
         self.tree_view.clear()
@@ -422,20 +497,39 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Copick Plugin")
     parser.add_argument(
-        "--config_path",
+        "--config_path", 
+        type=str, 
+        help="Path to the copick config file", 
+        default=None
+    )
+    parser.add_argument(
+        "--dataset_ids",
+        type=int,
+        nargs="+",
+        help="Dataset IDs to include in the project (space separated)",
+        default=None
+    )
+    parser.add_argument(
+        "--overlay_root",
         type=str,
-        required=True,
-        help="Path to the copick config file",
+        default="/tmp/overlay_root",
+        help="Root URL for the overlay storage when using dataset IDs"
     )
     args = parser.parse_args()
 
-    config_path = None
-    # config_path = "/Users/kharrington/Data/copick/chlamy_10301.json"
-    # config_path = "/Volumes/CZII_A/cellcanvas_tutorial/copick-local.json"
-    # config_path = "/Users/kharrington/Data/copick/synthetic_data_10439.json"
+    if not args.config_path and not args.dataset_ids:
+        print("Either --config_path or --dataset_ids must be provided")
+        sys.exit(1)
+    elif args.config_path and args.dataset_ids:
+        print("Only one of --config_path or --dataset_ids should be provided, not both")
+        sys.exit(1)
 
     viewer = napari.Viewer()
-    # copick_plugin = CopickPlugin(viewer, config_path=config_path)
-    copick_plugin = CopickPlugin(viewer, config_path=(args.config_path if config_path is None else config_path))
+    copick_plugin = CopickPlugin(
+        viewer, 
+        config_path=args.config_path,
+        dataset_ids=args.dataset_ids,
+        overlay_root=args.overlay_root
+    )
     viewer.window.add_dock_widget(copick_plugin, area="right")
     napari.run()
