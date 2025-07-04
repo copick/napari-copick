@@ -254,7 +254,7 @@ class CopickPlugin(QWidget):
         Load a tomogram directly using napari's multiscale API instead of using napari-ome-zarr.
         This handles the multiscale zarr arrays directly.
         """
-        zarr_path = tomogram.zarr().path
+        zarr_path = tomogram.zarr()
         zarr_group = zarr.open(zarr_path, "r")
 
         # Determine the number of scale levels
@@ -274,7 +274,7 @@ class CopickPlugin(QWidget):
         base_shape = base_array.shape
         
         # Calculate voxel size from metadata or fallback to uniform scaling
-        voxel_size = [tomogram.meta.voxel_spacing.meta.voxel_size] * 3
+        voxel_size = [tomogram.voxel_spacing.meta.voxel_size] * 3
         
         # Collect all scale levels and calculate scale factors
         scales = []
@@ -297,7 +297,7 @@ class CopickPlugin(QWidget):
             scale=voxel_size,
             multiscale=True,
             name=f"Tomogram: {tomogram.meta.tomo_type}",
-            contrast_limits=[np.min(all_data[0]), np.max(all_data[0])],
+            contrast_limits=[0, 1],
         )
 
         self.info_label.setText(
@@ -305,7 +305,7 @@ class CopickPlugin(QWidget):
         )
 
     def load_segmentation(self, segmentation):
-        zarr_data = zarr.open(segmentation.zarr().path, "r+")
+        zarr_data = zarr.open(segmentation.zarr(), "r+")
         if "data" in zarr_data:
             data = zarr_data["data"]
         else:
@@ -503,7 +503,7 @@ class CopickPlugin(QWidget):
             user_id=user_id,
         )
 
-        tomo = zarr.open(run.voxel_spacings[0].tomograms[0].zarr().path, "r")[
+        tomo = zarr.open(run.voxel_spacings[0].tomograms[0].zarr(), "r")[
             "0"
         ]
 
@@ -511,7 +511,7 @@ class CopickPlugin(QWidget):
         dtype = np.int32
 
         # Create an empty Zarr array for the segmentation
-        zarr_file = zarr.open(seg.zarr().path, mode="w")
+        zarr_file = zarr.open(seg.zarr(), mode="w")
         zarr_file.create_dataset(
             "data",
             shape=shape,
