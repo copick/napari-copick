@@ -29,9 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
+          version: "0.7.13"
           python-version: ${{ matrix.python-version }}
 
       # these libraries enable testing on Qt on linux
@@ -43,12 +44,6 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/pyvista/gl-ci-helpers.git
           powershell gl-ci-helpers/appveyor/install_opengl.ps1
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.7.13"
-          python-version: ${{ matrix.python-version }}
 
       - name: Install napari-copick
         run: uv sync --locked --extra testing --extra dev
