@@ -67,7 +67,7 @@ testing = [
     "pytest-cov",
     "pytest-qt",
     "napari",
-    "pyqt5",
+    "pyqt6",
 ]
 
 [project.entry-points."napari.manifest"]
