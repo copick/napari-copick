@@ -36,13 +36,13 @@ To install latest development version:
 ### Using a copick config file
 
 ```bash
-python -m napari_copick.widget --config_path path/to/copick_config.json
+napari-copick run --config_path path/to/copick_config.json
 ```
 
 ### Using dataset IDs from CZ cryoET Data Portal
 
 ```bash
-python -m napari_copick.widget --dataset_ids 10440 10441 --overlay_root /path/to/overlay_root
+napari-copick run --dataset_ids 10440 10441 --overlay_root /path/to/overlay_root
 ```
 
 You can specify multiple dataset IDs separated by spaces.

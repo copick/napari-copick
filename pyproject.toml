@@ -33,8 +33,9 @@ dependencies = [
     "trimesh",
     "fsspec",
     "pydantic>=2",
-    "copick",
+    "copick@git+https://github.com/copick/copick.git@de80ec0",
     "napari-ome-zarr",
+    "click",
 ]
 authors = [
     { name = "Kyle Harrington", email = "czi@kyleharrington.com" },
@@ -71,6 +72,9 @@ testing = [
 
 [project.entry-points."napari.manifest"]
 napari-copick = "napari_copick:napari.yaml"
+
+[project.scripts]
+napari-copick = "napari_copick.cli.run:cli"
 
 [tool.hatch.version]
 path = "src/napari_copick/__init__.py"
