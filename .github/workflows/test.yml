@@ -48,10 +48,11 @@ jobs:
       - name: Install napari-copick
         run: uv sync --locked --extra testing --extra dev
 
-      - name: Test with uv run
+      # this runs the platform-specific tests declared in tox.ini
+      - name: Test with tox
         uses: aganders3/headless-gui@v1
         with:
-          run: uv run pytest -v --color=yes --cov=napari_copick --cov-report=xml
+          run: uv run tox
         env:
           PLATFORM: ${{ matrix.platform }}
 
