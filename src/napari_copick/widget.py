@@ -1,32 +1,29 @@
-import dask.array as da
-import numpy as np
-import copick
-import zarr
-import napari
 import sys
-from typing import List, Optional, Dict, Any, Tuple
+
+import copick
+import dask.array as da
+import napari
+import numpy as np
+import zarr
+from napari.utils import DirectLabelColormap
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
-    QWidget,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
     QPushButton,
+    QSpinBox,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
-    QLabel,
-    QFileDialog,
-    QLineEdit,
-    QMenu,
-    QAction,
-    QFormLayout,
-    QComboBox,
-    QSpinBox,
-    QHBoxLayout,
-    QDialog,
-    QDialogButtonBox,
-    QGridLayout,
-    QCheckBox,
+    QWidget,
 )
-from qtpy.QtCore import Qt, QPoint
-from napari.utils import DirectLabelColormap
 
 
 class DatasetIdDialog(QDialog):
@@ -238,7 +235,7 @@ class CopickPlugin(QWidget):
         zarr_group = zarr.open(zarr_path, "r")
 
         # Determine the number of scale levels
-        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
+        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]  # noqa: SIM118
         scale_levels.sort(key=int)
 
         if not scale_levels:
@@ -270,7 +267,7 @@ class CopickPlugin(QWidget):
             scales.append(scale_factor)
 
         # Add multiscale image to the viewer
-        layer = self.viewer.add_image(
+        _ = self.viewer.add_image(
             all_data,
             scale=voxel_size,
             multiscale=True,
@@ -282,10 +279,7 @@ class CopickPlugin(QWidget):
 
     def load_segmentation(self, segmentation):
         zarr_data = zarr.open(segmentation.zarr(), "r+")
-        if "data" in zarr_data:
-            data = zarr_data["data"]
-        else:
-            data = zarr_data["0"]
+        data = zarr_data["data"] if "data" in zarr_data else zarr_data["0"]
 
         scale = [segmentation.meta.voxel_size] * 3
 
@@ -320,7 +314,7 @@ class CopickPlugin(QWidget):
                                 color[1] / 255.0,
                                 color[2] / 255.0,
                                 color[3] / 255.0,
-                            ]
+                            ],
                         ),
                         (len(points), 1),
                     )  # Create an array with the correct shape
@@ -407,7 +401,7 @@ class CopickPlugin(QWidget):
                 session_input.value(),
                 user_input.text(),
                 float(voxel_size_input.currentText()),
-            )
+            ),
         )
         layout.addWidget(create_button)
 
@@ -439,7 +433,7 @@ class CopickPlugin(QWidget):
                 object_name_input.currentText(),
                 session_input.value(),
                 user_input.text(),
-            )
+            ),
         )
         layout.addWidget(create_button)
 
@@ -511,7 +505,10 @@ if __name__ == "__main__":
 
     viewer = napari.Viewer()
     copick_plugin = CopickPlugin(
-        viewer, config_path=args.config_path, dataset_ids=args.dataset_ids, overlay_root=args.overlay_root
+        viewer,
+        config_path=args.config_path,
+        dataset_ids=args.dataset_ids,
+        overlay_root=args.overlay_root,
     )
     viewer.window.add_dock_widget(copick_plugin, area="right")
     napari.run()
