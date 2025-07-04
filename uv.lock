@@ -666,7 +666,7 @@ wheels = [
 [[package]]
 name = "copick"
 version = "1.5.0"
-source = { git = "https://github.com/copick/copick.git?rev=de80ec0#de80ec0754c781f91b0966c33ae6febb683c998d" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "click", version = "8.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -693,6 +693,10 @@ dependencies = [
     { name = "zarr", version = "2.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "zarr", version = "2.18.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1a/b6/6b296b1cb9b0d1fd323998b44baa195646eb39d5dcd12a2eaacc09b3516e/copick-1.5.0.tar.gz", hash = "sha256:addcc8b95f9cfd38caab2789fe8dcb278a284704b83d6dace7cf0f1f5cac1c30", size = 5139595, upload-time = "2025-06-21T08:12:23.419Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/86/d25d32088aa262931153ded85d2ff8b2663c31c6428d91cf0823e6e3c8bf/copick-1.5.0-py3-none-any.whl", hash = "sha256:f3fb7f2180ebf5404d10a160716463d506184ad28f5a15e4b2bc50df4e441335", size = 56811, upload-time = "2025-06-21T08:12:21.402Z" },
 ]
 
 [[package]]
@@ -1340,7 +1344,7 @@ name = "importlib-metadata"
 version = "8.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp" },
+    { name = "zipp", marker = "python_full_version < '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/66/650a33bd90f786193e4de4b3ad86ea60b53c89b669a5c7be931fac31cdb0/importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000", size = 56641, upload-time = "2025-04-27T15:29:01.736Z" }
 wheels = [
@@ -2263,8 +2267,6 @@ wheels = [
 name = "napari-copick"
 source = { editable = "." }
 dependencies = [
-    { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "click", version = "8.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "copick" },
     { name = "fsspec" },
     { name = "magicgui" },
@@ -2304,8 +2306,7 @@ testing = [
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
-    { name = "click" },
-    { name = "copick", git = "https://github.com/copick/copick.git?rev=de80ec0" },
+    { name = "copick" },
     { name = "fsspec" },
     { name = "hatch-vcs", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "hatchling", marker = "extra == 'dev'", specifier = ">=1.25.0" },
