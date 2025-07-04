@@ -62,6 +62,7 @@ dev = [
 ]
 testing = [
     "tox",
+    "tox-gh-actions",
     "pytest",
     "pytest-cov",
     "pytest-qt",
