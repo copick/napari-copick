@@ -43,7 +43,7 @@ def cli(ctx):
     multiple=True,
     help="Dataset IDs to include in the project.",
     metavar="ID",
-    default=None,
+    default=(),
 )
 @click.option(
     "--overlay-root",
