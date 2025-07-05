@@ -1,10 +1,11 @@
 import copick
-import dask.array as da
+import logging
 import napari
 import numpy as np
 import zarr
 from napari.utils import DirectLabelColormap
 from qtpy.QtCore import Qt
+from .async_loaders import load_tomogram_worker, load_segmentation_worker, expand_run_worker, expand_voxel_spacing_worker
 from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
@@ -15,6 +16,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
+    QProgressBar,
     QPushButton,
     QSpinBox,
     QTreeWidget,
@@ -22,6 +24,8 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
 
 
 class DatasetIdDialog(QDialog):
@@ -63,6 +67,12 @@ class DatasetIdDialog(QDialog):
 class CopickPlugin(QWidget):
     def __init__(self, viewer=None, config_path=None, dataset_ids=None, overlay_root="/tmp/overlay_root"):
         super().__init__()
+        
+        # Setup logging
+        self.setup_logging()
+        self.logger = logging.getLogger("CopickPlugin")
+        self.logger.info("Initializing CopickPlugin")
+        
         if viewer:
             self.viewer = viewer
         else:
@@ -72,6 +82,10 @@ class CopickPlugin(QWidget):
         self.selected_run = None
         self.current_layer = None
         self.session_id = "17"
+        self.loading_workers = {}  # Track active loading workers
+        self.loading_items = {}  # Track tree items being loaded
+        self.expansion_workers = {}  # Track active expansion workers
+        self.expansion_items = {}  # Track tree items being expanded
         self.setup_ui()
 
         if config_path:
@@ -106,11 +120,76 @@ class CopickPlugin(QWidget):
         self.tree_view.customContextMenuRequested.connect(self.open_context_menu)
         layout.addWidget(self.tree_view)
 
+        # Resolution level selector
+        resolution_layout = QHBoxLayout()
+        resolution_label = QLabel("Image Resolution:")
+        self.resolution_combo = QComboBox()
+        self.resolution_combo.addItems([
+            "0 - Highest (Full Resolution)",
+            "1 - Medium (Binned by 2)",
+            "2 - Lowest (Binned by 4)"
+        ])
+        self.resolution_combo.setCurrentIndex(1)  # Default to medium resolution
+        resolution_layout.addWidget(resolution_label)
+        resolution_layout.addWidget(self.resolution_combo)
+        resolution_layout.addStretch()
+        layout.addLayout(resolution_layout)
+        
         # Info label
         self.info_label = QLabel("Select a pick to get started")
         layout.addWidget(self.info_label)
 
         self.setLayout(layout)
+        
+    def setup_logging(self):
+        """Setup logging to file for debugging."""
+        # Create a custom logger
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        
+        # Clear any existing handlers
+        logger.handlers.clear()
+        
+        # Create formatter
+        formatter = logging.Formatter(
+            '%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # Create file handler
+        file_handler = logging.FileHandler('/tmp/napari_copick_debug.log', mode='w')
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        
+        # Create console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(formatter)
+        
+        # Add handlers to logger
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+    def closeEvent(self, event):
+        """Clean up workers when widget is closed."""
+        self.cleanup_workers()
+        super().closeEvent(event)
+        
+    def cleanup_workers(self):
+        """Stop and clean up all active workers."""
+        # Clean up loading workers
+        for worker in list(self.loading_workers.values()):
+            if hasattr(worker, 'quit'):
+                worker.quit()
+        self.loading_workers.clear()
+        self.loading_items.clear()
+        
+        # Clean up expansion workers
+        for worker in list(self.expansion_workers.values()):
+            if hasattr(worker, 'quit'):
+                worker.quit()
+        self.expansion_workers.clear()
+        self.expansion_items.clear()
 
     def open_file_dialog(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open Config", "", "JSON Files (*.json)")
@@ -150,29 +229,62 @@ class CopickPlugin(QWidget):
     def handle_item_expand(self, item):
         data = item.data(0, Qt.UserRole)
         if isinstance(data, copick.models.CopickRun):
-            self.expand_run(item, data)
+            self.expand_run_async(item, data)
         elif isinstance(data, copick.models.CopickVoxelSpacing):
-            self.expand_voxel_spacing(item, data)
+            self.expand_voxel_spacing_async(item, data)
 
-    def expand_run(self, item, run):
-        if not item.childCount():
-            for voxel_spacing in run.voxel_spacings:
+    def expand_run_async(self, item, run):
+        """
+        Expand a run asynchronously with loading indicator.
+        """
+        # Skip if already expanded or currently expanding
+        if item.childCount() > 0 or run in self.expansion_workers:
+            return
+            
+        self.logger.info(f"Starting async expansion for run: {run.meta.name}")
+        
+        # Add loading indicator
+        self.add_loading_indicator(item)
+        self.expansion_items[run] = item
+        
+        # Create worker
+        worker = expand_run_worker(run)
+        
+        # Connect signals
+        worker.yielded.connect(lambda msg: self.on_progress(msg, run, "run"))
+        worker.returned.connect(lambda result: self.on_run_expanded(result))
+        worker.errored.connect(lambda e: self.on_error(str(e), run, "run"))
+        worker.finished.connect(lambda: self.cleanup_expansion_worker(run))
+        
+        # Start the worker
+        worker.start()
+        self.expansion_workers[run] = worker
+        self.info_label.setText(f"Expanding run: {run.meta.name}...")
+        
+    def on_run_expanded(self, result):
+        """
+        Handle successful run expansion.
+        """
+        run = result['run']
+        voxel_spacings = result['voxel_spacings']
+        picks_data = result['picks_data']
+        
+        self.logger.info(f"Run expanded successfully: {run.meta.name}")
+        
+        # Remove loading indicator
+        if run in self.expansion_items:
+            item = self.expansion_items[run]
+            self.remove_loading_indicator(item)
+            
+            # Add voxel spacings
+            for voxel_spacing in voxel_spacings:
                 spacing_item = QTreeWidgetItem(item, [f"Voxel Spacing: {voxel_spacing.meta.voxel_size}"])
                 spacing_item.setData(0, Qt.UserRole, voxel_spacing)
                 spacing_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
 
             # Add picks nested by user_id, session_id, and pickable_object_name
-            picks = run.picks
             picks_item = QTreeWidgetItem(item, ["Picks"])
-            user_dict = {}
-            for pick in picks:
-                if pick.meta.user_id not in user_dict:
-                    user_dict[pick.meta.user_id] = {}
-                if pick.meta.session_id not in user_dict[pick.meta.user_id]:
-                    user_dict[pick.meta.user_id][pick.meta.session_id] = []
-                user_dict[pick.meta.user_id][pick.meta.session_id].append(pick)
-
-            for user_id, sessions in user_dict.items():
+            for user_id, sessions in picks_data.items():
                 user_item = QTreeWidgetItem(picks_item, [f"User: {user_id}"])
                 for session_id, picks in sessions.items():
                     session_item = QTreeWidgetItem(user_item, [f"Session: {session_id}"])
@@ -180,21 +292,67 @@ class CopickPlugin(QWidget):
                         pick_child = QTreeWidgetItem(session_item, [pick.meta.pickable_object_name])
                         pick_child.setData(0, Qt.UserRole, pick)
             item.addChild(picks_item)
+            
+            self.info_label.setText(f"Expanded run: {run.meta.name}")
 
-    def expand_voxel_spacing(self, item, voxel_spacing):
-        if not item.childCount():
+    def expand_voxel_spacing_async(self, item, voxel_spacing):
+        """
+        Expand a voxel spacing asynchronously with loading indicator.
+        """
+        # Skip if already expanded or currently expanding
+        if item.childCount() > 0 or voxel_spacing in self.expansion_workers:
+            return
+            
+        self.logger.info(f"Starting async expansion for voxel spacing: {voxel_spacing.meta.voxel_size}")
+        
+        # Add loading indicator
+        self.add_loading_indicator(item)
+        self.expansion_items[voxel_spacing] = item
+        
+        # Create worker
+        worker = expand_voxel_spacing_worker(voxel_spacing)
+        
+        # Connect signals
+        worker.yielded.connect(lambda msg: self.on_progress(msg, voxel_spacing, "voxel_spacing"))
+        worker.returned.connect(lambda result: self.on_voxel_spacing_expanded(result))
+        worker.errored.connect(lambda e: self.on_error(str(e), voxel_spacing, "voxel_spacing"))
+        worker.finished.connect(lambda: self.cleanup_expansion_worker(voxel_spacing))
+        
+        # Start the worker
+        worker.start()
+        self.expansion_workers[voxel_spacing] = worker
+        self.info_label.setText(f"Expanding voxel spacing: {voxel_spacing.meta.voxel_size}...")
+        
+    def on_voxel_spacing_expanded(self, result):
+        """
+        Handle successful voxel spacing expansion.
+        """
+        voxel_spacing = result['voxel_spacing']
+        tomograms = result['tomograms']
+        segmentations = result['segmentations']
+        
+        self.logger.info(f"Voxel spacing expanded successfully: {voxel_spacing.meta.voxel_size}")
+        
+        # Remove loading indicator
+        if voxel_spacing in self.expansion_items:
+            item = self.expansion_items[voxel_spacing]
+            self.remove_loading_indicator(item)
+            
+            # Add tomograms
             tomogram_item = QTreeWidgetItem(item, ["Tomograms"])
-            for tomogram in voxel_spacing.tomograms:
+            for tomogram in tomograms:
                 tomo_child = QTreeWidgetItem(tomogram_item, [tomogram.meta.tomo_type])
                 tomo_child.setData(0, Qt.UserRole, tomogram)
             item.addChild(tomogram_item)
 
+            # Add segmentations
             segmentation_item = QTreeWidgetItem(item, ["Segmentations"])
-            segmentations = voxel_spacing.run.get_segmentations(voxel_size=voxel_spacing.meta.voxel_size)
             for segmentation in segmentations:
                 seg_child = QTreeWidgetItem(segmentation_item, [segmentation.meta.name])
                 seg_child.setData(0, Qt.UserRole, segmentation)
             item.addChild(segmentation_item)
+            
+            self.info_label.setText(f"Expanded voxel spacing: {voxel_spacing.meta.voxel_size}")
 
     def handle_item_click(self, item, column):
         data = item.data(0, Qt.UserRole)
@@ -205,9 +363,9 @@ class CopickPlugin(QWidget):
             self.info_label.setText(f"Voxel Spacing: {data.meta.voxel_size}")
             self.lazy_load_voxel_spacing(item, data)
         elif isinstance(data, copick.models.CopickTomogram):
-            self.load_tomogram(data)
+            self.load_tomogram_async(data, item)
         elif isinstance(data, copick.models.CopickSegmentation):
-            self.load_segmentation(data)
+            self.load_segmentation_async(data, item)
         elif isinstance(data, copick.models.CopickPicks):
             parent_run = self.get_parent_run(item)
             self.load_picks(data, parent_run)
@@ -222,73 +380,262 @@ class CopickPlugin(QWidget):
 
     def lazy_load_voxel_spacing(self, item, voxel_spacing):
         if not item.childCount():
-            self.expand_voxel_spacing(item, voxel_spacing)
+            self.expand_voxel_spacing_async(item, voxel_spacing)
 
-    def load_tomogram(self, tomogram):
+    def load_tomogram_async(self, tomogram, item):
         """
-        Load a tomogram directly using napari's multiscale API instead of using napari-ome-zarr.
-        This handles the multiscale zarr arrays directly.
+        Load a tomogram asynchronously with loading indicator using napari's threading system.
         """
-        zarr_path = tomogram.zarr()
-        zarr_group = zarr.open(zarr_path, "r")
-
-        # Determine the number of scale levels
-        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]  # noqa: SIM118
-        scale_levels.sort(key=int)
-
-        if not scale_levels:
-            self.info_label.setText(f"Error: No scale levels found in tomogram: {tomogram.meta.tomo_type}")
+        self.logger.info(f"Starting async load for tomogram: {tomogram.meta.tomo_type}")
+        
+        # Check if already loading
+        if tomogram in self.loading_workers:
+            self.logger.warning(f"Tomogram {tomogram.meta.tomo_type} already loading, skipping")
             return
+            
+        # Add loading indicator
+        self.logger.info("Adding loading indicator")
+        self.add_loading_indicator(item)
+        self.loading_items[tomogram] = item
+        
+        # Get selected resolution level
+        resolution_level = self.resolution_combo.currentIndex()
+        self.logger.info(f"Selected resolution level: {resolution_level}")
+        
+        # Create worker using napari's threading system
+        self.logger.info("Creating worker thread")
+        worker = load_tomogram_worker(tomogram, resolution_level)
+        
+        # Connect signals
+        worker.yielded.connect(lambda msg: self.on_progress(msg, tomogram, "tomogram"))
+        worker.returned.connect(lambda result: self.on_tomogram_loaded(result))
+        worker.errored.connect(lambda e: self.on_error(str(e), tomogram, "tomogram"))
+        worker.finished.connect(lambda: self.cleanup_worker(tomogram))
+        
+        # Start the worker
+        self.logger.info("Starting worker thread")
+        worker.start()
+        
+        self.loading_workers[tomogram] = worker
+        self.info_label.setText(f"Loading tomogram: {tomogram.meta.tomo_type}...")
+        self.logger.info(f"Worker started for tomogram: {tomogram.meta.tomo_type}")
+        
+    def add_loading_indicator(self, item):
+        """
+        Add a loading indicator to the tree item while preserving original text.
+        """
+        # Store original text
+        original_text = item.text(0)
+        item.setData(0, Qt.UserRole + 1, original_text)  # Store in custom role
+        
+        # Create a widget with text + progress bar
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(2, 0, 2, 0)
+        
+        # Original text label
+        text_label = QLabel(original_text)
+        layout.addWidget(text_label)
+        
+        # Small progress bar
+        progress_bar = QProgressBar()
+        progress_bar.setRange(0, 0)  # Indeterminate progress
+        progress_bar.setMaximumHeight(12)
+        progress_bar.setMaximumWidth(60)
+        layout.addWidget(progress_bar)
+        
+        layout.addStretch()
+        
+        # Set the widget on the tree item
+        self.tree_view.setItemWidget(item, 0, widget)
+        
+    def remove_loading_indicator(self, item):
+        """
+        Remove the loading indicator from the tree item and restore original text.
+        """
+        self.tree_view.setItemWidget(item, 0, None)
+        
+        # Restore original text if stored
+        original_text = item.data(0, Qt.UserRole + 1)
+        if original_text:
+            item.setText(0, original_text)
+            item.setData(0, Qt.UserRole + 1, None)  # Clear stored text
+        
+    def load_segmentation_async(self, segmentation, item):
+        """
+        Load a segmentation asynchronously with loading indicator using napari's threading system.
+        """
+        self.logger.info(f"Starting async load for segmentation: {segmentation.meta.name}")
+        
+        # Check if already loading
+        if segmentation in self.loading_workers:
+            self.logger.warning(f"Segmentation {segmentation.meta.name} already loading, skipping")
+            return
+            
+        # Add loading indicator
+        self.logger.info("Adding loading indicator")
+        self.add_loading_indicator(item)
+        self.loading_items[segmentation] = item
+        
+        # Get selected resolution level
+        resolution_level = self.resolution_combo.currentIndex()
+        self.logger.info(f"Selected resolution level: {resolution_level}")
+        
+        # Create worker using napari's threading system
+        self.logger.info("Creating worker thread")
+        worker = load_segmentation_worker(segmentation, resolution_level)
+        
+        # Connect signals
+        worker.yielded.connect(lambda msg: self.on_progress(msg, segmentation, "segmentation"))
+        worker.returned.connect(lambda result: self.on_segmentation_loaded(result))
+        worker.errored.connect(lambda e: self.on_error(str(e), segmentation, "segmentation"))
+        worker.finished.connect(lambda: self.cleanup_worker(segmentation))
+        
+        # Start the worker
+        self.logger.info("Starting worker thread")
+        worker.start()
+        
+        self.loading_workers[segmentation] = worker
+        self.info_label.setText(f"Loading segmentation: {segmentation.meta.name}...")
+        self.logger.info(f"Worker started for segmentation: {segmentation.meta.name}")
+        
+    def on_progress(self, message, data_object, data_type):
+        """
+        Handle progress updates from workers.
+        """
+        if data_type == "tomogram":
+            self.logger.info(f"Progress for {data_object.meta.tomo_type}: {message}")
+        elif data_type == "segmentation":
+            self.logger.info(f"Progress for {data_object.meta.name}: {message}")
+        elif data_type == "run":
+            self.logger.info(f"Progress for {data_object.meta.name}: {message}")
+        elif data_type == "voxel_spacing":
+            self.logger.info(f"Progress for voxel spacing {data_object.meta.voxel_size}: {message}")
+        self.info_label.setText(f"{message}")
+        
+    def on_tomogram_loaded(self, result):
+        """
+        Handle successful tomogram loading.
+        """
+        tomogram = result['tomogram']
+        loaded_data = result['data']
+        voxel_size = result['voxel_size']
+        name = result['name']
+        resolution_level = result['resolution_level']
+        
+        self.logger.info(f"Tomogram loaded successfully: {tomogram.meta.tomo_type} at resolution level {resolution_level}")
+        
+        # Remove loading indicator
+        if tomogram in self.loading_items:
+            item = self.loading_items[tomogram]
+            self.logger.info("Removing loading indicator")
+            self.remove_loading_indicator(item)
+        
+        # Add pre-loaded image to the viewer (should be fast!)
+        self.logger.info(f"Adding pre-loaded image to viewer. Data shape: {loaded_data.shape}")
+        try:
+            layer = self.viewer.add_image(
+                loaded_data,
+                scale=voxel_size,
+                name=name,
+            )
+            layer.reset_contrast_limits()
+            self.logger.info("Image added to viewer successfully")
+            self.info_label.setText(f"Loaded Tomogram: {tomogram.meta.tomo_type} (Resolution Level {resolution_level})")
+        except Exception as e:
+            self.logger.error(f"Error adding image to viewer: {str(e)}", exc_info=True)
+            self.info_label.setText(f"Error displaying tomogram: {str(e)}")
+            
+    def on_segmentation_loaded(self, result):
+        """
+        Handle successful segmentation loading.
+        """
+        segmentation = result['segmentation']
+        loaded_data = result['data']
+        voxel_size = result['voxel_size']
+        name = result['name']
+        resolution_level = result['resolution_level']
+        
+        self.logger.info(f"Segmentation loaded successfully: {segmentation.meta.name} at resolution level {resolution_level}")
+        
+        # Remove loading indicator
+        if segmentation in self.loading_items:
+            item = self.loading_items[segmentation]
+            self.logger.info("Removing loading indicator")
+            self.remove_loading_indicator(item)
+        
+        # Add pre-loaded segmentation to the viewer (should be fast!)
+        self.logger.info(f"Adding pre-loaded segmentation to viewer. Data shape: {loaded_data.shape}")
+        try:
+            # Create a color map based on copick colors
+            colormap = self.get_copick_colormap()
+            painting_layer = self.viewer.add_labels(
+                loaded_data, 
+                name=name, 
+                scale=voxel_size
+            )
+            painting_layer.colormap = DirectLabelColormap(color_dict=colormap)
+            painting_layer.painting_labels = [obj.label for obj in self.root.config.pickable_objects]
+            self.class_labels_mapping = {obj.label: obj.name for obj in self.root.config.pickable_objects}
+            
+            self.logger.info("Segmentation added to viewer successfully")
+            self.info_label.setText(f"Loaded Segmentation: {segmentation.meta.name} (Resolution Level {resolution_level})")
+        except Exception as e:
+            self.logger.error(f"Error adding segmentation to viewer: {str(e)}", exc_info=True)
+            self.info_label.setText(f"Error displaying segmentation: {str(e)}")
+            
+    def on_error(self, error_msg, data_object, data_type):
+        """
+        Handle errors for loading and expansion operations.
+        """
+        if data_type == "tomogram":
+            self.logger.error(f"Tomogram loading error for {data_object.meta.tomo_type}: {error_msg}")
+        elif data_type == "segmentation":
+            self.logger.error(f"Segmentation loading error for {data_object.meta.name}: {error_msg}")
+        elif data_type == "run":
+            self.logger.error(f"Run expansion error for {data_object.meta.name}: {error_msg}")
+        elif data_type == "voxel_spacing":
+            self.logger.error(f"Voxel spacing expansion error for {data_object.meta.voxel_size}: {error_msg}")
+        
+        # Remove loading indicator (check both loading and expansion items)
+        if data_object in self.loading_items:
+            item = self.loading_items[data_object]
+            self.remove_loading_indicator(item)
+        elif data_object in self.expansion_items:
+            item = self.expansion_items[data_object]
+            self.remove_loading_indicator(item)
+        
+        self.info_label.setText(f"Error: {error_msg}")
+        
+    def cleanup_worker(self, data_object):
+        """
+        Clean up loading worker and associated data.
+        """
+        if data_object in self.loading_workers:
+            del self.loading_workers[data_object]
+            if hasattr(data_object.meta, 'tomo_type'):
+                self.logger.info(f"Loading worker cleaned up for tomogram: {data_object.meta.tomo_type}")
+            else:
+                self.logger.info(f"Loading worker cleaned up for segmentation: {data_object.meta.name}")
+            
+        if data_object in self.loading_items:
+            del self.loading_items[data_object]
+            
+    def cleanup_expansion_worker(self, data_object):
+        """
+        Clean up expansion worker and associated data.
+        """
+        if data_object in self.expansion_workers:
+            del self.expansion_workers[data_object]
+            if hasattr(data_object.meta, 'name'):
+                self.logger.info(f"Expansion worker cleaned up for run: {data_object.meta.name}")
+            else:
+                self.logger.info(f"Expansion worker cleaned up for voxel spacing: {data_object.meta.voxel_size}")
+            
+        if data_object in self.expansion_items:
+            del self.expansion_items[data_object]
+            
 
-        # Calculate scaling factors between resolution levels
-        all_arrays = []
-        all_data = []
-
-        # Get the highest resolution data
-        base_array = zarr_group[scale_levels[0]]
-        base_shape = base_array.shape
-
-        # Calculate voxel size from metadata or fallback to uniform scaling
-        voxel_size = [tomogram.voxel_spacing.meta.voxel_size] * 3
-
-        # Collect all scale levels and calculate scale factors
-        scales = []
-        for level in scale_levels:
-            array = zarr_group[level]
-            # Create Dask array for lazy loading
-            dask_array = da.from_array(array, chunks=array.chunks)
-            all_arrays.append(array)
-            all_data.append(dask_array)
-
-            # Calculate scale relative to the base level
-            scale_factor = [bs / s for bs, s in zip(base_shape, array.shape)]
-            scales.append(scale_factor)
-
-        # Add multiscale image to the viewer
-        _ = self.viewer.add_image(
-            all_data,
-            scale=voxel_size,
-            multiscale=True,
-            name=f"Tomogram: {tomogram.meta.tomo_type}",
-            contrast_limits=[0, 1],
-        )
-
-        self.info_label.setText(f"Loaded Tomogram: {tomogram.meta.tomo_type} with {len(scale_levels)} scale levels")
-
-    def load_segmentation(self, segmentation):
-        zarr_data = zarr.open(segmentation.zarr(), "r+")
-        data = zarr_data["data"] if "data" in zarr_data else zarr_data["0"]
-
-        scale = [segmentation.meta.voxel_size] * 3
-
-        # Create a color map based on copick colors
-        colormap = self.get_copick_colormap()
-        painting_layer = self.viewer.add_labels(data, name=f"Segmentation: {segmentation.meta.name}", scale=scale)
-        painting_layer.colormap = DirectLabelColormap(color_dict=colormap)
-        painting_layer.painting_labels = [obj.label for obj in self.root.config.pickable_objects]
-        self.class_labels_mapping = {obj.label: obj.name for obj in self.root.config.pickable_objects}
-
-        self.info_label.setText(f"Loaded Segmentation: {segmentation.meta.name}")
 
     def get_copick_colormap(self, pickable_objects=None):
         if not pickable_objects:
@@ -446,9 +793,15 @@ class CopickPlugin(QWidget):
             user_id=user_id,
         )
 
-        tomo = zarr.open(run.voxel_spacings[0].tomograms[0].zarr(), "r")["0"]
+        # Get tomogram shape from first available tomogram
+        first_tomogram = run.voxel_spacings[0].tomograms[0]
+        zarr_group = zarr.open(first_tomogram.zarr(), "r")
+        # Get shape from the highest resolution level
+        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
+        scale_levels.sort(key=int)
+        tomo_array = zarr_group[scale_levels[0]]
+        shape = tomo_array.shape
 
-        shape = tomo.shape
         dtype = np.int32
 
         # Create an empty Zarr array for the segmentation
