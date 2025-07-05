@@ -63,11 +63,13 @@ dev = [
 ]
 testing = [
     "tox",
+    "tox-gh-actions",
+    "tox-uv",
     "pytest",
     "pytest-cov",
     "pytest-qt",
     "napari",
-    "pyqt5",
+    "pyqt6",
 ]
 
 [project.entry-points."napari.manifest"]
@@ -142,4 +144,11 @@ exclude_lines = [
   "no cov",
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
+]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
