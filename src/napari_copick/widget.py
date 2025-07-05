@@ -32,6 +32,13 @@ from .async_loaders import (
     load_tomogram_worker,
 )
 
+# Import the shared EditObjectTypesDialog
+try:
+    from copick_shared_ui.ui import EditObjectTypesDialog
+except ImportError:
+    # Fallback if shared component is not available
+    EditObjectTypesDialog = None
+
 
 class DatasetIdDialog(QDialog):
     def __init__(self, parent=None):
@@ -115,6 +122,13 @@ class CopickPlugin(QWidget):
         load_options_layout.addWidget(self.load_dataset_button)
 
         layout.addLayout(load_options_layout)
+
+        # Edit Object Types button
+        self.edit_objects_button = QPushButton("✏️ Edit Object Types")
+        self.edit_objects_button.clicked.connect(self.open_edit_objects_dialog)
+        self.edit_objects_button.setEnabled(False)  # Disabled until config is loaded
+        self.edit_objects_button.setToolTip("Edit or add new object types in the configuration")
+        layout.addWidget(self.edit_objects_button)
 
         # Hierarchical tree view
         self.tree_view = QTreeWidget()
@@ -206,10 +220,43 @@ class CopickPlugin(QWidget):
             if dataset_ids:
                 self.load_from_dataset_ids(dataset_ids=dataset_ids, overlay_root=overlay_root)
 
+    def open_edit_objects_dialog(self):
+        """Open the EditObjectTypesDialog to manage object types"""
+        if not self.root or not self.root.config:
+            self.info_label.setText("No configuration loaded. Please load a config first.")
+            return
+
+        if EditObjectTypesDialog is None:
+            self.info_label.setText("EditObjectTypesDialog is not available. Shared component may not be installed.")
+            return
+
+        try:
+            dialog = EditObjectTypesDialog(self, self.root.config.pickable_objects)
+            if dialog.exec_() == QDialog.Accepted:
+                # Get the updated objects from the dialog
+                updated_objects = dialog.get_objects()
+                
+                # Update the configuration
+                self.root.config.pickable_objects = updated_objects
+                
+                # Update any UI elements that depend on the object types
+                self.populate_tree()  # Refresh the tree view
+                
+                # Update any loaded segmentation layers with new colormap
+                for layer in self.viewer.layers:
+                    if hasattr(layer, 'colormap') and 'Segmentation:' in layer.name:
+                        layer.colormap = DirectLabelColormap(color_dict=self.get_copick_colormap())
+                        layer.painting_labels = [obj.label for obj in self.root.config.pickable_objects]
+                        
+                self.info_label.setText(f"Updated {len(updated_objects)} object types in configuration")
+        except Exception as e:
+            self.info_label.setText(f"Error opening EditObjectTypesDialog: {str(e)}")
+
     def load_config(self, config_path=None):
         if config_path:
             self.root = copick.from_file(config_path)
             self.populate_tree()
+            self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded
             self.info_label.setText(f"Loaded config from {config_path}")
 
     def load_from_dataset_ids(self, dataset_ids=None, overlay_root="/tmp/overlay_root"):
@@ -220,6 +267,7 @@ class CopickPlugin(QWidget):
                 overlay_fs_args={"auto_mkdir": True},
             )
             self.populate_tree()
+            self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded
             self.info_label.setText(f"Loaded project from dataset IDs: {', '.join(map(str, dataset_ids))}")
 
     def populate_tree(self):
