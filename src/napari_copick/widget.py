@@ -76,7 +76,7 @@ class CopickPlugin(QWidget):
         # Setup logging
         self.setup_logging()
         self.logger = logging.getLogger("CopickPlugin")
-        self.logger.info("Initializing CopickPlugin")
+        self.logger.debug("Initializing CopickPlugin")
 
         if viewer:
             self.viewer = viewer
@@ -244,7 +244,7 @@ class CopickPlugin(QWidget):
         if item.childCount() > 0 or run in self.expansion_workers:
             return
 
-        self.logger.info(f"Starting async expansion for run: {run.meta.name}")
+        self.logger.debug(f"Starting async expansion for run: {run.meta.name}")
 
         # Add loading indicator
         self.add_loading_indicator(item)
@@ -272,7 +272,7 @@ class CopickPlugin(QWidget):
         voxel_spacings = result["voxel_spacings"]
         picks_data = result["picks_data"]
 
-        self.logger.info(f"Run expanded successfully: {run.meta.name}")
+        self.logger.debug(f"Run expanded successfully: {run.meta.name}")
 
         # Remove loading indicator
         if run in self.expansion_items:
@@ -306,7 +306,7 @@ class CopickPlugin(QWidget):
         if item.childCount() > 0 or voxel_spacing in self.expansion_workers:
             return
 
-        self.logger.info(f"Starting async expansion for voxel spacing: {voxel_spacing.meta.voxel_size}")
+        self.logger.debug(f"Starting async expansion for voxel spacing: {voxel_spacing.meta.voxel_size}")
 
         # Add loading indicator
         self.add_loading_indicator(item)
@@ -334,7 +334,7 @@ class CopickPlugin(QWidget):
         tomograms = result["tomograms"]
         segmentations = result["segmentations"]
 
-        self.logger.info(f"Voxel spacing expanded successfully: {voxel_spacing.meta.voxel_size}")
+        self.logger.debug(f"Voxel spacing expanded successfully: {voxel_spacing.meta.voxel_size}")
 
         # Remove loading indicator
         if voxel_spacing in self.expansion_items:
@@ -389,7 +389,7 @@ class CopickPlugin(QWidget):
         """
         Load a tomogram asynchronously with loading indicator using napari's threading system.
         """
-        self.logger.info(f"Starting async load for tomogram: {tomogram.meta.tomo_type}")
+        self.logger.debug(f"Starting async load for tomogram: {tomogram.meta.tomo_type}")
 
         # Check if already loading
         if tomogram in self.loading_workers:
@@ -403,7 +403,7 @@ class CopickPlugin(QWidget):
 
         # Get selected resolution level
         resolution_level = self.resolution_combo.currentIndex()
-        self.logger.info(f"Selected resolution level: {resolution_level}")
+        self.logger.debug(f"Selected resolution level: {resolution_level}")
 
         # Create worker using napari's threading system
         self.logger.debug("Creating worker thread")
