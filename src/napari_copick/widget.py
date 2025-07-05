@@ -600,13 +600,17 @@ class CopickPlugin(QWidget):
         elif data_type == "voxel_spacing":
             self.logger.exception(f"Voxel spacing expansion error for {data_object.meta.voxel_size}: {error_msg}")
 
-        # Remove loading indicator (check both loading and expansion items)
+        # Remove loading indicator and clean up workers properly
         if data_object in self.loading_items:
             item = self.loading_items[data_object]
             self.remove_loading_indicator(item)
+            # Clean up loading worker
+            self.cleanup_worker(data_object)
         elif data_object in self.expansion_items:
             item = self.expansion_items[data_object]
             self.remove_loading_indicator(item)
+            # Clean up expansion worker
+            self.cleanup_expansion_worker(data_object)
 
         self.info_label.setText(f"Error: {error_msg}")
 
