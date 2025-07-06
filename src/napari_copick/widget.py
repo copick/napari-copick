@@ -33,6 +33,15 @@ from .async_loaders import (
     load_tomogram_worker,
 )
 
+# Import thumbnail cache setup
+try:
+    from copick_shared_ui.core.image_interface import get_image_interface
+    from copick_shared_ui.core.thumbnail_cache import set_global_cache_config, set_global_cache_image_interface
+except ImportError:
+    set_global_cache_config = None
+    set_global_cache_image_interface = None
+    get_image_interface = None
+
 # Import the shared EditObjectTypesDialog
 try:
     from copick_shared_ui.ui import EditObjectTypesDialog
@@ -273,6 +282,27 @@ class CopickPlugin(QWidget):
         self.expansion_workers.clear()
         self.expansion_items.clear()
 
+        # Clean up shared UI components' workers
+        if GALLERY_AVAILABLE and hasattr(self, "gallery_widget"):
+            try:
+                # Access the worker interface through the gallery integration
+                if hasattr(self.gallery_widget, "gallery_integration"):
+                    worker_interface = self.gallery_widget.gallery_integration.worker_interface
+                    if hasattr(worker_interface, "shutdown_workers"):
+                        worker_interface.shutdown_workers(timeout_ms=1000)
+            except Exception as e:
+                print(f"Warning: Could not cleanup gallery workers: {e}")
+
+        if INFO_AVAILABLE and hasattr(self, "info_widget"):
+            try:
+                # Access the worker interface through the info widget
+                if hasattr(self.info_widget, "worker_interface"):
+                    worker_interface = self.info_widget.worker_interface
+                    if hasattr(worker_interface, "shutdown_workers"):
+                        worker_interface.shutdown_workers(timeout_ms=1000)
+            except Exception as e:
+                print(f"Warning: Could not cleanup info workers: {e}")
+
     def open_file_dialog(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open Config", "", "JSON Files (*.json)")
         if path:
@@ -320,6 +350,17 @@ class CopickPlugin(QWidget):
     def load_config(self, config_path=None):
         if config_path:
             self.root = copick.from_file(config_path)
+
+            # Initialize thumbnail cache with config file
+            if set_global_cache_config:
+                set_global_cache_config(config_path, app_name="copick")
+
+                # Set up image interface for thumbnail cache
+                if set_global_cache_image_interface and get_image_interface:
+                    image_interface = get_image_interface()
+                    if image_interface:
+                        set_global_cache_image_interface(image_interface, app_name="copick")
+
             self.populate_tree()
             self._update_gallery()
             self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded
@@ -332,6 +373,19 @@ class CopickPlugin(QWidget):
                 overlay_root=overlay_root,
                 overlay_fs_args={"auto_mkdir": True},
             )
+
+            # Initialize thumbnail cache with dataset-based config
+            if set_global_cache_config:
+                # For dataset-based configs, use a unique cache key based on dataset IDs
+                cache_key = f"datasets_{'-'.join(map(str, dataset_ids))}"
+                set_global_cache_config(cache_key, app_name="copick")
+
+                # Set up image interface for thumbnail cache
+                if set_global_cache_image_interface and get_image_interface:
+                    image_interface = get_image_interface()
+                    if image_interface:
+                        set_global_cache_image_interface(image_interface, app_name="copick")
+
             self.populate_tree()
             self._update_gallery()
             self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded

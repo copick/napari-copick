@@ -16,6 +16,7 @@ try:
 except ImportError as e:
     print(f"❌ DEBUG: Gallery import failed - {e}")
     import traceback
+
     traceback.print_exc()
     SHARED_UI_AVAILABLE = False
 
@@ -41,7 +42,7 @@ class NapariCopickGalleryWidget(QWidget):
             print("⚠️ DEBUG: Using fallback gallery UI - shared UI not available")
             self._setup_fallback_ui()
             return
-        
+
         print("✅ DEBUG: Using full gallery widget implementation")
 
         # Initialize the shared UI integration

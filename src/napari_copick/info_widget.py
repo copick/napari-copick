@@ -1,6 +1,6 @@
 """napari-specific implementation of the copick info widget."""
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QWidget
@@ -19,10 +19,11 @@ try:
         AbstractImageInterface,
         AbstractInfoSessionInterface,
         AbstractThemeInterface,
-        AbstractWorkerInterface,
+        AbstractWorkerInterface,  # noqa: F401
     )
+
     print("✅ DEBUG: Successfully imported core models")
-    
+
     print("🔍 DEBUG: Attempting to import theming components...")
     from copick_shared_ui.theming.colors import get_color_scheme
     from copick_shared_ui.theming.styles import (
@@ -31,22 +32,26 @@ try:
         generate_stylesheet,
     )
     from copick_shared_ui.theming.theme_detection import detect_napari_theme
+
     print("✅ DEBUG: Successfully imported theming components")
-    
+
     print("🔍 DEBUG: Attempting to import info widget...")
     from copick_shared_ui.widgets.info.info_widget import CopickInfoWidget
+
     print("✅ DEBUG: Successfully imported CopickInfoWidget")
-    
+
     print("🔍 DEBUG: Attempting to import platform integration...")
     from copick_shared_ui.platform.napari_integration import NapariWorkerInterface
+
     print("✅ DEBUG: Successfully imported NapariWorkerInterface")
 
     print("✅ DEBUG: All imports successful - SHARED_UI_AVAILABLE = True")
     SHARED_UI_AVAILABLE = True
 except ImportError as e:
     print(f"❌ DEBUG: Import failed - {e}")
-    print(f"❌ DEBUG: SHARED_UI_AVAILABLE = False")
+    print("❌ DEBUG: SHARED_UI_AVAILABLE = False")
     import traceback
+
     traceback.print_exc()
     SHARED_UI_AVAILABLE = False
 
@@ -84,7 +89,6 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
             # Switch to tree view first
             self.plugin_widget.switch_to_tree_view()
             # The tree expansion is handled by the main plugin
-
 
     class NapariThemeInterface(AbstractThemeInterface):
         """napari-specific theme interface."""
@@ -159,7 +163,6 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
             except Exception:
                 return None
 
-
     class NapariCopickInfoWidget(CopickInfoWidget):
         """napari-specific copick info widget."""
 
@@ -192,6 +195,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
 else:
     # Fallback if dependencies are not available
     print("⚠️ DEBUG: Using fallback info widget - dependencies not available")
+
     class NapariCopickInfoWidget(QWidget):
         """Fallback info widget when dependencies are not available."""
 
