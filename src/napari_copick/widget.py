@@ -44,7 +44,7 @@ except ImportError:
 
 # Import the shared EditObjectTypesDialog
 try:
-    from copick_shared_ui.ui import EditObjectTypesDialog
+    from copick_shared_ui.ui.edit_object_types_dialog import EditObjectTypesDialog
 except ImportError:
     # Fallback if shared component is not available
     EditObjectTypesDialog = None
