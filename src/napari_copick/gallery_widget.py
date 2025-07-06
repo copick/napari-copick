@@ -5,27 +5,14 @@ from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTabW
 from qtpy.QtCore import Slot
 
 try:
-    from copick_shared_ui.platform import NapariGalleryIntegration
+    # Import directly from module to avoid __init__.py issues
+    import copick_shared_ui.platform.napari_integration as napari_integration_module
+    NapariGalleryIntegration = napari_integration_module.NapariGalleryIntegration
     SHARED_UI_AVAILABLE = True
-    print("✓ Successfully imported NapariGalleryIntegration from copick_shared_ui.platform")
+    print("✓ Successfully imported NapariGalleryIntegration directly")
 except ImportError as e:
     SHARED_UI_AVAILABLE = False
     print(f"✗ Failed to import NapariGalleryIntegration: {e}")
-    print("Trying to debug package availability...")
-    try:
-        import copick_shared_ui
-        print(f"✓ copick_shared_ui package found at: {copick_shared_ui.__file__}")
-        print(f"✓ copick_shared_ui package contents: {dir(copick_shared_ui)}")
-    except ImportError as e2:
-        print(f"✗ copick_shared_ui package not found: {e2}")
-    
-    try:
-        import copick_shared_ui.platform
-        print(f"✓ copick_shared_ui.platform module found")
-        print(f"✓ copick_shared_ui.platform contents: {dir(copick_shared_ui.platform)}")
-    except ImportError as e3:
-        print(f"✗ copick_shared_ui.platform module not found: {e3}")
-    
     import traceback
     traceback.print_exc()
 
