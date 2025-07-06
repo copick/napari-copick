@@ -36,6 +36,10 @@ try:
     print("🔍 DEBUG: Attempting to import info widget...")
     from copick_shared_ui.widgets.info.info_widget import CopickInfoWidget
     print("✅ DEBUG: Successfully imported CopickInfoWidget")
+    
+    print("🔍 DEBUG: Attempting to import platform integration...")
+    from copick_shared_ui.platform.napari_integration import NapariWorkerInterface
+    print("✅ DEBUG: Successfully imported NapariWorkerInterface")
 
     print("✅ DEBUG: All imports successful - SHARED_UI_AVAILABLE = True")
     SHARED_UI_AVAILABLE = True
@@ -155,69 +159,6 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
             except Exception:
                 return None
 
-    class NapariWorkerInterface(AbstractWorkerInterface):
-        """napari-specific worker interface using @thread_worker."""
-
-        def __init__(self):
-            self._active_workers = []
-
-        def start_thumbnail_worker(
-            self,
-            item: Union["CopickRun", "CopickTomogram"],
-            thumbnail_id: str,
-            callback: callable,
-            force_regenerate: bool = False,
-        ) -> None:
-            """Start a thumbnail loading worker using napari's @thread_worker."""
-            if not NAPARI_AVAILABLE:
-                callback(thumbnail_id, None, "napari not available")
-                return
-
-            @thread_worker
-            def load_thumbnail():
-                try:
-                    from copick_shared_ui.workers.napari import NapariThumbnailWorker
-
-                    # Create the worker with the item (run or tomogram)
-                    def dummy_callback(tid, pixmap, error):
-                        # This callback will be overridden by the worker's internal handling
-                        pass
-                    
-                    worker = NapariThumbnailWorker(item, thumbnail_id, dummy_callback, force_regenerate)
-                    
-                    # Generate thumbnail using unified system
-                    pixmap, error = worker.generate_thumbnail_pixmap()
-                    
-                    if error:
-                        return None, error
-                    else:
-                        return pixmap, None
-
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
-                    return None, str(e)
-
-            # Create and connect the worker
-            worker = load_thumbnail()
-            worker.returned.connect(lambda result: callback(thumbnail_id, result[0], result[1]))
-            worker.errored.connect(lambda error: callback(thumbnail_id, None, str(error)))
-
-            # Store reference and start
-            self._active_workers.append(worker)
-            worker.start()
-
-        def clear_workers(self) -> None:
-            """Clear all pending workers."""
-            for worker in self._active_workers:
-                if hasattr(worker, "quit"):
-                    worker.quit()
-            self._active_workers.clear()
-
-        def shutdown_workers(self, timeout_ms: int = 3000) -> None:
-            """Shutdown all workers with timeout."""
-            self.clear_workers()
-            # napari workers don't have a shutdown mechanism like QThreadPool
 
     class NapariCopickInfoWidget(CopickInfoWidget):
         """napari-specific copick info widget."""
