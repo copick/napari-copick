@@ -1,6 +1,6 @@
 """napari-specific implementation of the copick info widget."""
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QWidget
@@ -14,29 +14,45 @@ except ImportError:
 
 # Import shared components
 try:
-    from copick_shared_ui.gallery.core.models import (
+    print("🔍 DEBUG: Attempting to import from copick_shared_ui.core.models...")
+    from copick_shared_ui.core.models import (
         AbstractImageInterface,
+        AbstractInfoSessionInterface,
         AbstractThemeInterface,
         AbstractWorkerInterface,
     )
-    from copick_shared_ui.gallery.theming.colors import get_color_scheme
-    from copick_shared_ui.gallery.theming.styles import (
+    print("✅ DEBUG: Successfully imported core models")
+    
+    print("🔍 DEBUG: Attempting to import theming components...")
+    from copick_shared_ui.theming.colors import get_color_scheme
+    from copick_shared_ui.theming.styles import (
         generate_button_stylesheet,
         generate_input_stylesheet,
         generate_stylesheet,
     )
-    from copick_shared_ui.gallery.theming.theme_detection import detect_napari_theme
-    from copick_shared_ui.info.core.info_widget import CopickInfoWidget
-    from copick_shared_ui.info.core.models import AbstractInfoSessionInterface
+    from copick_shared_ui.theming.theme_detection import detect_napari_theme
+    print("✅ DEBUG: Successfully imported theming components")
+    
+    print("🔍 DEBUG: Attempting to import info widget...")
+    from copick_shared_ui.widgets.info.info_widget import CopickInfoWidget
+    print("✅ DEBUG: Successfully imported CopickInfoWidget")
 
+    print("✅ DEBUG: All imports successful - SHARED_UI_AVAILABLE = True")
     SHARED_UI_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    print(f"❌ DEBUG: Import failed - {e}")
+    print(f"❌ DEBUG: SHARED_UI_AVAILABLE = False")
+    import traceback
+    traceback.print_exc()
     SHARED_UI_AVAILABLE = False
 
 if TYPE_CHECKING:
     from copick.models import CopickRun, CopickTomogram
 
+print(f"📊 DEBUG: NAPARI_AVAILABLE = {NAPARI_AVAILABLE}, SHARED_UI_AVAILABLE = {SHARED_UI_AVAILABLE}")
+
 if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
+    print("✅ DEBUG: Using full info widget implementation")
 
     class NapariInfoSessionInterface(AbstractInfoSessionInterface):
         """napari-specific session interface for info widget."""
@@ -65,37 +81,6 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
             self.plugin_widget.switch_to_tree_view()
             # The tree expansion is handled by the main plugin
 
-        def get_portal_link(self, item) -> Optional[str]:
-            """Get CryoET Data Portal link for an item if applicable."""
-            try:
-                # Import here to avoid circular imports
-                from copick.impl.cryoet_data_portal import CopickRunCDP
-
-                # Check if this is a CryoET Data Portal project
-                if hasattr(item, "run") and isinstance(item.run, CopickRunCDP):
-                    run_id = item.run.portal_run_id
-
-                    if hasattr(item, "meta") and hasattr(item.meta, "portal_tomo_id"):
-                        # Tomogram link
-                        return f"https://cryoetdataportal.czscience.com/runs/{run_id}?table-tab=Tomograms"
-                    elif hasattr(item, "meta") and hasattr(item.meta, "portal_annotation_id"):
-                        # Annotation link (picks, segmentations)
-                        return f"https://cryoetdataportal.czscience.com/runs/{run_id}?table-tab=Annotations"
-                    elif (
-                        hasattr(item, "voxel_spacing")
-                        and hasattr(item.voxel_spacing, "run")
-                        and isinstance(item.voxel_spacing.run, CopickRunCDP)
-                    ):
-                        # Voxel spacing or tomogram via voxel spacing
-                        run_id = item.voxel_spacing.run.portal_run_id
-                        return f"https://cryoetdataportal.czscience.com/runs/{run_id}"
-                    else:
-                        # General run link
-                        return f"https://cryoetdataportal.czscience.com/runs/{run_id}"
-
-                return None
-            except Exception:
-                return None
 
     class NapariThemeInterface(AbstractThemeInterface):
         """napari-specific theme interface."""
@@ -138,48 +123,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
     class NapariImageInterface(AbstractImageInterface):
         """napari-specific image/pixmap interface."""
 
-        def create_pixmap_from_array(self, array: Any) -> Any:
-            """Create a QPixmap from numpy array."""
-            import numpy as np
-            from qtpy.QtGui import QImage, QPixmap
-
-            if array.ndim == 2:
-                # Grayscale image
-                height, width = array.shape
-                bytes_per_line = width
-
-                # Ensure array is uint8
-                if array.dtype != np.uint8:
-                    # Normalize to 0-255 range
-                    array_min, array_max = array.min(), array.max()
-                    if array_max > array_min:
-                        array = ((array - array_min) / (array_max - array_min) * 255).astype(np.uint8)
-                    else:
-                        array = np.zeros_like(array, dtype=np.uint8)
-
-                # Create QImage from array
-                qimage = QImage(array.data, width, height, bytes_per_line, QImage.Format_Grayscale8)
-
-                # Convert to QPixmap
-                return QPixmap.fromImage(qimage)
-
-            elif array.ndim == 3 and array.shape[2] == 3:
-                # RGB image
-                height, width, channels = array.shape
-                bytes_per_line = width * channels
-
-                # Ensure array is uint8
-                if array.dtype != np.uint8:
-                    array = (array * 255).astype(np.uint8)
-
-                # Create QImage from array
-                qimage = QImage(array.data, width, height, bytes_per_line, QImage.Format_RGB888)
-
-                # Convert to QPixmap
-                return QPixmap.fromImage(qimage)
-
-            else:
-                return None
+        # create_pixmap_from_array is now inherited from AbstractImageInterface
 
         def scale_pixmap(self, pixmap: Any, size: tuple, smooth: bool = True) -> Any:
             """Scale a pixmap to the specified size."""
@@ -219,7 +163,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
 
         def start_thumbnail_worker(
             self,
-            run: "CopickRun",
+            item: Union["CopickRun", "CopickTomogram"],
             thumbnail_id: str,
             callback: callable,
             force_regenerate: bool = False,
@@ -232,51 +176,26 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
             @thread_worker
             def load_thumbnail():
                 try:
-                    from copick_shared_ui.gallery.workers.base_workers import AbstractThumbnailWorker
+                    from copick_shared_ui.workers.napari import NapariThumbnailWorker
 
-                    # Create a dummy worker to access the shared methods
-                    class ThumbnailHelper(AbstractThumbnailWorker):
-                        def start(self):
-                            pass
-
-                        def cancel(self):
-                            pass
-
-                    helper = ThumbnailHelper(run, thumbnail_id, callback, force_regenerate)
-
-                    # Select best tomogram
-                    tomogram = helper._select_best_tomogram(run)
-                    if not tomogram:
-                        return None, "No tomogram found"
-
-                    # Generate thumbnail array
-                    thumbnail_array = helper._generate_thumbnail_array(tomogram)
-                    if thumbnail_array is None:
-                        return None, "Failed to generate thumbnail"
-
-                    # Convert to QPixmap
-                    import numpy as np
-                    from qtpy.QtGui import QImage, QPixmap
-
-                    # Ensure array is uint8
-                    if thumbnail_array.dtype != np.uint8:
-                        array_min, array_max = thumbnail_array.min(), thumbnail_array.max()
-                        if array_max > array_min:
-                            thumbnail_array = ((thumbnail_array - array_min) / (array_max - array_min) * 255).astype(
-                                np.uint8,
-                            )
-                        else:
-                            thumbnail_array = np.zeros_like(thumbnail_array, dtype=np.uint8)
-
-                    height, width = thumbnail_array.shape
-                    bytes_per_line = width
-                    qimage = QImage(thumbnail_array.data, width, height, bytes_per_line, QImage.Format_Grayscale8)
-                    pixmap = QPixmap.fromImage(qimage)
-
-                    return pixmap, None
+                    # Create the worker with the item (run or tomogram)
+                    def dummy_callback(tid, pixmap, error):
+                        # This callback will be overridden by the worker's internal handling
+                        pass
+                    
+                    worker = NapariThumbnailWorker(item, thumbnail_id, dummy_callback, force_regenerate)
+                    
+                    # Generate thumbnail using unified system
+                    pixmap, error = worker.generate_thumbnail_pixmap()
+                    
+                    if error:
+                        return None, error
+                    else:
+                        return pixmap, None
 
                 except Exception as e:
-                    pass
+                    import traceback
+                    traceback.print_exc()
                     return None, str(e)
 
             # Create and connect the worker
@@ -331,6 +250,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
 
 else:
     # Fallback if dependencies are not available
+    print("⚠️ DEBUG: Using fallback info widget - dependencies not available")
     class NapariCopickInfoWidget(QWidget):
         """Fallback info widget when dependencies are not available."""
 
