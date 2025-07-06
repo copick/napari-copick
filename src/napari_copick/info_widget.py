@@ -14,17 +14,13 @@ except ImportError:
 
 # Import shared components
 try:
-    print("🔍 DEBUG: Attempting to import from copick_shared_ui.core.models...")
     from copick_shared_ui.core.models import (
         AbstractImageInterface,
         AbstractInfoSessionInterface,
         AbstractThemeInterface,
         AbstractWorkerInterface,  # noqa: F401
     )
-
-    print("✅ DEBUG: Successfully imported core models")
-
-    print("🔍 DEBUG: Attempting to import theming components...")
+    from copick_shared_ui.platform.napari_integration import NapariWorkerInterface
     from copick_shared_ui.theming.colors import get_color_scheme
     from copick_shared_ui.theming.styles import (
         generate_button_stylesheet,
@@ -32,20 +28,8 @@ try:
         generate_stylesheet,
     )
     from copick_shared_ui.theming.theme_detection import detect_napari_theme
-
-    print("✅ DEBUG: Successfully imported theming components")
-
-    print("🔍 DEBUG: Attempting to import info widget...")
     from copick_shared_ui.widgets.info.info_widget import CopickInfoWidget
 
-    print("✅ DEBUG: Successfully imported CopickInfoWidget")
-
-    print("🔍 DEBUG: Attempting to import platform integration...")
-    from copick_shared_ui.platform.napari_integration import NapariWorkerInterface
-
-    print("✅ DEBUG: Successfully imported NapariWorkerInterface")
-
-    print("✅ DEBUG: All imports successful - SHARED_UI_AVAILABLE = True")
     SHARED_UI_AVAILABLE = True
 except ImportError as e:
     print(f"❌ DEBUG: Import failed - {e}")
@@ -58,10 +42,8 @@ except ImportError as e:
 if TYPE_CHECKING:
     from copick.models import CopickRun, CopickTomogram
 
-print(f"📊 DEBUG: NAPARI_AVAILABLE = {NAPARI_AVAILABLE}, SHARED_UI_AVAILABLE = {SHARED_UI_AVAILABLE}")
 
 if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
-    print("✅ DEBUG: Using full info widget implementation")
 
     class NapariInfoSessionInterface(AbstractInfoSessionInterface):
         """napari-specific session interface for info widget."""

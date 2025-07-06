@@ -7,11 +7,9 @@ from qtpy.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 try:
     # Import directly from module to avoid __init__.py issues
-    print("🔍 DEBUG: Attempting to import napari gallery integration...")
     import copick_shared_ui.platform.napari_integration as napari_integration_module
 
     NapariGalleryIntegration = napari_integration_module.NapariGalleryIntegration
-    print("✅ DEBUG: Successfully imported NapariGalleryIntegration")
     SHARED_UI_AVAILABLE = True
 except ImportError as e:
     print(f"❌ DEBUG: Gallery import failed - {e}")
@@ -37,13 +35,10 @@ class NapariCopickGalleryWidget(QWidget):
         self.viewer = viewer
         self.copick_root = None
 
-        print(f"📊 DEBUG: Gallery SHARED_UI_AVAILABLE = {SHARED_UI_AVAILABLE}")
         if not SHARED_UI_AVAILABLE:
             print("⚠️ DEBUG: Using fallback gallery UI - shared UI not available")
             self._setup_fallback_ui()
             return
-
-        print("✅ DEBUG: Using full gallery widget implementation")
 
         # Initialize the shared UI integration
         self.gallery_integration = NapariGalleryIntegration(viewer)
