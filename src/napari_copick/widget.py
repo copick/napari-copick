@@ -573,10 +573,15 @@ class CopickPlugin(QWidget):
             return
 
         # Add loading indicators
-        self.add_loading_indicator(item)
-        self.loading_items[tomogram] = item
+        if item is not None:
+            # Add tree-specific loading indicator only if we have a tree item
+            self.add_loading_indicator(item)
+            self.loading_items[tomogram] = item
+        else:
+            # For cases where no tree item is available (e.g., info widget clicks)
+            self.loading_items[tomogram] = None
 
-        # Add global loading indicator
+        # Add global loading indicator (always show this)
         operation_id = f"load_tomogram_{tomogram.meta.tomo_type}_{id(tomogram)}"
         self._add_operation(operation_id, f"Loading tomogram: {tomogram.meta.tomo_type}...")
 
@@ -692,10 +697,11 @@ class CopickPlugin(QWidget):
         name = result["name"]
         resolution_level = result["resolution_level"]
 
-        # Remove loading indicator
+        # Remove loading indicator (only for tree items)
         if tomogram in self.loading_items:
             item = self.loading_items[tomogram]
-            self.remove_loading_indicator(item)
+            if item is not None:
+                self.remove_loading_indicator(item)
 
         # Remove global loading indicator
         operation_id = f"load_tomogram_{tomogram.meta.tomo_type}_{id(tomogram)}"
@@ -779,7 +785,8 @@ class CopickPlugin(QWidget):
         # Remove loading indicator and clean up workers properly
         if data_object in self.loading_items:
             item = self.loading_items[data_object]
-            self.remove_loading_indicator(item)
+            if item is not None:
+                self.remove_loading_indicator(item)
             # Clean up loading worker
             self.cleanup_worker(data_object)
         elif data_object in self.expansion_items:
