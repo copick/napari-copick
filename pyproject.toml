@@ -36,7 +36,7 @@ dependencies = [
     "copick@git+https://github.com/copick/copick.git@de80ec0",
     "napari-ome-zarr",
     "click",
-    "copick-shared-ui",
+    "copick-shared-ui@file:///home/uermel/Documents/napari_improvement/copick-shared-ui",
 ]
 authors = [
     { name = "Kyle Harrington", email = "czi@kyleharrington.com" },
