@@ -19,6 +19,7 @@ from qtpy.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSpinBox,
+    QTabWidget,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -38,6 +39,17 @@ try:
 except ImportError:
     # Fallback if shared component is not available
     EditObjectTypesDialog = None
+
+# Import the gallery widget
+try:
+    from .gallery_widget import NapariCopickGalleryWidget
+    GALLERY_AVAILABLE = True
+    print("✓ Successfully imported NapariCopickGalleryWidget")
+except ImportError as e:
+    GALLERY_AVAILABLE = False
+    print(f"✗ Failed to import NapariCopickGalleryWidget: {e}")
+    import traceback
+    traceback.print_exc()
 
 
 class DatasetIdDialog(QDialog):
@@ -130,6 +142,13 @@ class CopickPlugin(QWidget):
         self.edit_objects_button.setToolTip("Edit or add new object types in the configuration")
         layout.addWidget(self.edit_objects_button)
 
+        # Create tab widget for tree and gallery views
+        self.tab_widget = QTabWidget()
+        
+        # Tree view tab
+        tree_tab = QWidget()
+        tree_layout = QVBoxLayout(tree_tab)
+        
         # Hierarchical tree view
         self.tree_view = QTreeWidget()
         self.tree_view.setHeaderLabel("Copick Project")
@@ -137,7 +156,25 @@ class CopickPlugin(QWidget):
         self.tree_view.itemClicked.connect(self.handle_item_click)
         self.tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree_view.customContextMenuRequested.connect(self.open_context_menu)
-        layout.addWidget(self.tree_view)
+        tree_layout.addWidget(self.tree_view)
+        
+        self.tab_widget.addTab(tree_tab, "🌲 Tree View")
+        
+        # Gallery view tab
+        if GALLERY_AVAILABLE:
+            self.gallery_widget = NapariCopickGalleryWidget(self.viewer, self)
+            self.tab_widget.addTab(self.gallery_widget, "📸 Gallery View")
+        else:
+            # Fallback if gallery is not available
+            gallery_fallback = QWidget()
+            fallback_layout = QVBoxLayout(gallery_fallback)
+            fallback_label = QLabel("Gallery view not available\n\nThe copick-shared-ui package is required.")
+            fallback_label.setAlignment(Qt.AlignCenter)
+            fallback_label.setStyleSheet("color: #888; font-size: 14px; padding: 40px;")
+            fallback_layout.addWidget(fallback_label)
+            self.tab_widget.addTab(gallery_fallback, "📸 Gallery View")
+            
+        layout.addWidget(self.tab_widget)
 
         # Resolution level selector
         resolution_layout = QHBoxLayout()
@@ -156,7 +193,44 @@ class CopickPlugin(QWidget):
         self.info_label = QLabel("Select a pick to get started")
         layout.addWidget(self.info_label)
 
+        # Global loading indicator
+        self.loading_widget = QWidget()
+        loading_layout = QHBoxLayout(self.loading_widget)
+        loading_layout.setContentsMargins(5, 5, 5, 5)
+        
+        self.loading_label = QLabel("Loading...")
+        self.loading_progress = QProgressBar()
+        self.loading_progress.setRange(0, 0)  # Indeterminate progress
+        self.loading_progress.setMaximumHeight(20)
+        
+        loading_layout.addWidget(self.loading_label)
+        loading_layout.addWidget(self.loading_progress)
+        
+        # Initially hidden
+        self.loading_widget.setVisible(False)
+        layout.addWidget(self.loading_widget)
+
         self.setLayout(layout)
+        
+        # Track active loading operations
+        self.active_operations = set()  # Set of operation identifiers
+        
+    def _add_operation(self, operation_id: str, description: str = "Loading...") -> None:
+        """Add an operation to the active operations and show global loading indicator."""
+        self.active_operations.add(operation_id)
+        self.loading_label.setText(description)
+        self.loading_widget.setVisible(True)
+        
+    def _remove_operation(self, operation_id: str) -> None:
+        """Remove an operation from active operations and hide loading indicator if none remain."""
+        self.active_operations.discard(operation_id)
+        if not self.active_operations:
+            self.loading_widget.setVisible(False)
+        
+    def _update_loading_status(self, description: str) -> None:
+        """Update the loading status description if operations are active."""
+        if self.active_operations:
+            self.loading_label.setText(description)
 
     def setup_logging(self):
         """Setup logging to file for debugging."""
@@ -256,6 +330,7 @@ class CopickPlugin(QWidget):
         if config_path:
             self.root = copick.from_file(config_path)
             self.populate_tree()
+            self._update_gallery()
             self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded
             self.info_label.setText(f"Loaded config from {config_path}")
 
@@ -267,6 +342,7 @@ class CopickPlugin(QWidget):
                 overlay_fs_args={"auto_mkdir": True},
             )
             self.populate_tree()
+            self._update_gallery()
             self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded
             self.info_label.setText(f"Loaded project from dataset IDs: {', '.join(map(str, dataset_ids))}")
 
@@ -294,9 +370,13 @@ class CopickPlugin(QWidget):
 
         self.logger.debug(f"Starting async expansion for run: {run.meta.name}")
 
-        # Add loading indicator
+        # Add loading indicators
         self.add_loading_indicator(item)
         self.expansion_items[run] = item
+        
+        # Add global loading indicator
+        operation_id = f"expand_run_{run.meta.name}"
+        self._add_operation(operation_id, f"Expanding run: {run.meta.name}...")
 
         # Create worker
         worker = expand_run_worker(run)
@@ -345,6 +425,10 @@ class CopickPlugin(QWidget):
             item.addChild(picks_item)
 
             self.info_label.setText(f"Expanded run: {run.meta.name}")
+            
+        # Remove global loading indicator
+        operation_id = f"expand_run_{run.meta.name}"
+        self._remove_operation(operation_id)
 
     def expand_voxel_spacing_async(self, item, voxel_spacing):
         """
@@ -359,6 +443,10 @@ class CopickPlugin(QWidget):
         # Add loading indicator
         self.add_loading_indicator(item)
         self.expansion_items[voxel_spacing] = item
+        
+        # Add global loading indicator
+        operation_id = f"expand_voxel_spacing_{voxel_spacing.meta.voxel_size}"
+        self._add_operation(operation_id, f"Expanding voxel spacing: {voxel_spacing.meta.voxel_size}...")
 
         # Create worker
         worker = expand_voxel_spacing_worker(voxel_spacing)
@@ -404,6 +492,10 @@ class CopickPlugin(QWidget):
             item.addChild(segmentation_item)
 
             self.info_label.setText(f"Expanded voxel spacing: {voxel_spacing.meta.voxel_size}")
+            
+        # Remove global loading indicator
+        operation_id = f"expand_voxel_spacing_{voxel_spacing.meta.voxel_size}"
+        self._remove_operation(operation_id)
 
     def handle_item_click(self, item, column):
         data = item.data(0, Qt.UserRole)
@@ -444,10 +536,14 @@ class CopickPlugin(QWidget):
             self.logger.warning(f"Tomogram {tomogram.meta.tomo_type} already loading, skipping")
             return
 
-        # Add loading indicator
+        # Add loading indicators
         self.logger.debug("Adding loading indicator")
         self.add_loading_indicator(item)
         self.loading_items[tomogram] = item
+        
+        # Add global loading indicator
+        operation_id = f"load_tomogram_{tomogram.meta.tomo_type}_{id(tomogram)}"
+        self._add_operation(operation_id, f"Loading tomogram: {tomogram.meta.tomo_type}...")
 
         # Get selected resolution level
         resolution_level = self.resolution_combo.currentIndex()
@@ -527,6 +623,10 @@ class CopickPlugin(QWidget):
         self.logger.debug("Adding loading indicator")
         self.add_loading_indicator(item)
         self.loading_items[segmentation] = item
+        
+        # Add global loading indicator
+        operation_id = f"load_segmentation_{segmentation.meta.name}_{id(segmentation)}"
+        self._add_operation(operation_id, f"Loading segmentation: {segmentation.meta.name}...")
 
         # Get selected resolution level
         resolution_level = self.resolution_combo.currentIndex()
@@ -582,6 +682,10 @@ class CopickPlugin(QWidget):
             self.logger.debug("Removing loading indicator")
             self.remove_loading_indicator(item)
 
+        # Remove global loading indicator
+        operation_id = f"load_tomogram_{tomogram.meta.tomo_type}_{id(tomogram)}"
+        self._remove_operation(operation_id)
+
         # Add pre-loaded image to the viewer (should be fast!)
         self.logger.debug(f"Adding pre-loaded image to viewer. Data shape: {loaded_data.shape}")
         try:
@@ -617,6 +721,10 @@ class CopickPlugin(QWidget):
             self.logger.debug("Removing loading indicator")
             self.remove_loading_indicator(item)
 
+        # Remove global loading indicator
+        operation_id = f"load_segmentation_{segmentation.meta.name}_{id(segmentation)}"
+        self._remove_operation(operation_id)
+
         # Add pre-loaded segmentation to the viewer (should be fast!)
         self.logger.debug(f"Adding pre-loaded segmentation to viewer. Data shape: {loaded_data.shape}")
         try:
@@ -647,6 +755,20 @@ class CopickPlugin(QWidget):
             self.logger.exception(f"Run expansion error for {data_object.meta.name}: {error_msg}")
         elif data_type == "voxel_spacing":
             self.logger.exception(f"Voxel spacing expansion error for {data_object.meta.voxel_size}: {error_msg}")
+
+        # Remove global loading indicator for errors
+        if data_type == "tomogram":
+            operation_id = f"load_tomogram_{data_object.meta.tomo_type}_{id(data_object)}"
+            self._remove_operation(operation_id)
+        elif data_type == "segmentation":
+            operation_id = f"load_segmentation_{data_object.meta.name}_{id(data_object)}"
+            self._remove_operation(operation_id)
+        elif data_type == "run":
+            operation_id = f"expand_run_{data_object.meta.name}"
+            self._remove_operation(operation_id)
+        elif data_type == "voxel_spacing":
+            operation_id = f"expand_voxel_spacing_{data_object.meta.voxel_size}"
+            self._remove_operation(operation_id)
 
         # Remove loading indicator and clean up workers properly
         if data_object in self.loading_items:
@@ -878,3 +1000,16 @@ class CopickPlugin(QWidget):
         )
         self.populate_tree()
         widget.close()
+        
+    def _update_gallery(self) -> None:
+        """Update the gallery widget with current copick root."""
+        if GALLERY_AVAILABLE and hasattr(self, 'gallery_widget'):
+            self.gallery_widget.set_copick_root(self.root)
+            
+    def switch_to_tree_view(self) -> None:
+        """Switch to tree view tab."""
+        self.tab_widget.setCurrentIndex(0)
+        
+    def switch_to_gallery_view(self) -> None:
+        """Switch to gallery view tab."""
+        self.tab_widget.setCurrentIndex(1)
