@@ -107,40 +107,40 @@ class NapariCopickGalleryWidget(QWidget):
             if SHARED_UI_AVAILABLE and hasattr(self, "gallery_integration"):
                 # Let the shared gallery system handle the selection - this will trigger
                 # the thumbnail worker which properly caches the best tomogram info
-                
+
                 # Find the best tomogram by triggering a thumbnail worker that will cache the selection
                 from copick_shared_ui.workers.base import AbstractThumbnailWorker
-                
+
                 # Create a temporary worker to get the best tomogram and cache it
                 class TempWorker(AbstractThumbnailWorker):
                     def __init__(self, run, callback):
                         self.run = run
                         super().__init__(run, run.name, callback, force_regenerate=False)
-                    
+
                     def start(self):
                         # Generate thumbnail to trigger best tomogram caching
                         pixmap, error = self.generate_thumbnail_pixmap()
                         # We don't actually use the pixmap, just want the caching side effect
-                        
+
                         # Now get the best tomogram from the internal cache
                         best_tomogram = self._select_best_tomogram(self.run)
                         if best_tomogram:
                             self.callback(None, best_tomogram, None)
                         else:
                             self.callback(None, None, "No suitable tomogram found")
-                    
+
                     def cancel(self):
                         pass
-                    
+
                     def _array_to_pixmap(self, array):
                         return None  # We don't need the actual pixmap
-                
+
                 def on_best_tomogram_found(thumbnail_id, best_tomogram, error):
                     if best_tomogram and not error:
                         self._load_tomogram_async(best_tomogram)
                     else:
                         print(f"Could not find best tomogram for run {run.name}: {error}")
-                
+
                 # Use the worker to get and cache the best tomogram
                 worker = TempWorker(run, on_best_tomogram_found)
                 worker.start()
