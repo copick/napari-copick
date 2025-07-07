@@ -102,11 +102,48 @@ class NapariCopickGalleryWidget(QWidget):
     def _on_run_selected(self, run: "CopickRun") -> None:
         """Handle run selection from gallery."""
         try:
-            # Select the best tomogram from the run
-            best_tomogram = self._select_best_tomogram(run)
-            if best_tomogram:
-                # Load the tomogram using the same async mechanism as the tree view
-                self._load_tomogram_async(best_tomogram)
+            # Use the shared system's best tomogram selection and caching
+            # This will trigger thumbnail generation and save best tomogram info
+            if SHARED_UI_AVAILABLE and hasattr(self, "gallery_integration"):
+                # Let the shared gallery system handle the selection - this will trigger
+                # the thumbnail worker which properly caches the best tomogram info
+                
+                # Find the best tomogram by triggering a thumbnail worker that will cache the selection
+                from copick_shared_ui.workers.base import AbstractThumbnailWorker
+                
+                # Create a temporary worker to get the best tomogram and cache it
+                class TempWorker(AbstractThumbnailWorker):
+                    def __init__(self, run, callback):
+                        self.run = run
+                        super().__init__(run, run.name, callback, force_regenerate=False)
+                    
+                    def start(self):
+                        # Generate thumbnail to trigger best tomogram caching
+                        pixmap, error = self.generate_thumbnail_pixmap()
+                        # We don't actually use the pixmap, just want the caching side effect
+                        
+                        # Now get the best tomogram from the internal cache
+                        best_tomogram = self._select_best_tomogram(self.run)
+                        if best_tomogram:
+                            self.callback(None, best_tomogram, None)
+                        else:
+                            self.callback(None, None, "No suitable tomogram found")
+                    
+                    def cancel(self):
+                        pass
+                    
+                    def _array_to_pixmap(self, array):
+                        return None  # We don't need the actual pixmap
+                
+                def on_best_tomogram_found(thumbnail_id, best_tomogram, error):
+                    if best_tomogram and not error:
+                        self._load_tomogram_async(best_tomogram)
+                    else:
+                        print(f"Could not find best tomogram for run {run.name}: {error}")
+                
+                # Use the worker to get and cache the best tomogram
+                worker = TempWorker(run, on_best_tomogram_found)
+                worker.start()
 
         except Exception as e:
             print(f"Error loading tomogram from gallery: {e}")
@@ -210,43 +247,3 @@ class NapariCopickGalleryWidget(QWidget):
             parent_widget.switch_to_tree_view()
         else:
             pass
-
-    def _select_best_tomogram(self, run: "CopickRun"):
-        """Select the best tomogram from a run (prefer denoised, highest voxel spacing)."""
-        try:
-            all_tomograms = []
-
-            # Collect all tomograms from all voxel spacings
-            for vs in run.voxel_spacings:
-                for tomo in vs.tomograms:
-                    all_tomograms.append(tomo)
-
-            if not all_tomograms:
-                return None
-
-            # Preference order for tomogram types (denoised first)
-            preferred_types = ["denoised", "wbp"]
-
-            # Group by voxel spacing (highest first)
-            voxel_spacings = sorted({tomo.voxel_spacing.voxel_size for tomo in all_tomograms}, reverse=True)
-
-            # Try each voxel spacing, starting with highest
-            for vs_size in voxel_spacings:
-                vs_tomograms = [tomo for tomo in all_tomograms if tomo.voxel_spacing.voxel_size == vs_size]
-
-                # Try preferred types in order
-                for preferred_type in preferred_types:
-                    for tomo in vs_tomograms:
-                        if preferred_type.lower() in tomo.tomo_type.lower():
-                            return tomo
-
-                # If no preferred type found, return the first tomogram at this voxel spacing
-                if vs_tomograms:
-                    return vs_tomograms[0]
-
-            # Fallback: return any tomogram
-            return all_tomograms[0] if all_tomograms else None
-
-        except Exception as e:
-            print(f"Error selecting best tomogram: {e}")
-            return None
