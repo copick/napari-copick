@@ -33,7 +33,7 @@ dependencies = [
     "trimesh",
     "fsspec",
     "pydantic>=2",
-    "copick@git+https://github.com/copick/copick.git@de80ec0",
+    "copick>=1.6.0",
     "napari-ome-zarr",
     "click",
     "copick-shared-ui==0.2.0",
