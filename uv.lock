@@ -759,7 +759,7 @@ all = [
 
 [[package]]
 name = "copick-shared-ui"
-version = "0.1.1"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "copick", extra = ["all"] },
@@ -768,13 +768,14 @@ dependencies = [
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pydantic" },
     { name = "qtpy" },
+    { name = "superqt" },
     { name = "zarr", version = "2.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "zarr", version = "2.18.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/89/dd/bfcd8d59533694bf5531977eb0d062b5939e23d8415cb6f7d784702d5f9d/copick_shared_ui-0.1.1.tar.gz", hash = "sha256:97ea2109c3915196ab919e3d1ad89066f34d1cd6d3c72def5c4732dc4ffb1b39", size = 41937, upload-time = "2025-07-06T17:59:04.948Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/09/2a5505a709f78ef8fd95e6e6087fa32ccd5584364b7dd335822d3665b546/copick_shared_ui-0.2.0.tar.gz", hash = "sha256:a7dee3ad727205b33c230cb3d91f44496106145d7d1b570291d20618cde7703e", size = 44166, upload-time = "2025-07-07T05:17:33.809Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/3a/7d8bf90121f23135c0055634769299cfe64d3e627d11a18fe377db5321b3/copick_shared_ui-0.1.1-py3-none-any.whl", hash = "sha256:98eec55719fa94ed5da9cb823e59c79c08527ead4e17ed1585ba01b82e75fe57", size = 55239, upload-time = "2025-07-06T17:59:02.635Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/5f/7d4554a5aeaa69a13be29e71e89469121e87b853a1ace02bee4e1ec6482c/copick_shared_ui-0.2.0-py3-none-any.whl", hash = "sha256:379bcb6b0d28728689b7f5e87d6700447577df11e8531063782a6185efa9cecf", size = 56780, upload-time = "2025-07-07T05:17:31.711Z" },
 ]
 
 [[package]]
@@ -2674,7 +2675,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "click" },
     { name = "copick", git = "https://github.com/copick/copick.git?rev=de80ec0" },
-    { name = "copick-shared-ui", specifier = "==0.1.1" },
+    { name = "copick-shared-ui", specifier = "==0.2.0" },
     { name = "fsspec" },
     { name = "hatch-vcs", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "hatchling", marker = "extra == 'dev'", specifier = ">=1.25.0" },
