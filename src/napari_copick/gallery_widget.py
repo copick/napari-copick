@@ -1,6 +1,6 @@
 """napari-specific gallery widget implementation using shared copick-shared-ui."""
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from qtpy.QtCore import Signal, Slot
 from qtpy.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
@@ -29,7 +29,7 @@ class NapariCopickGalleryWidget(QWidget):
     # Define signals
     info_requested = Signal(object)  # Emits CopickRun when info is requested
 
-    def __init__(self, viewer: "napari.Viewer", parent: Optional[QWidget] = None):
+    def __init__(self, viewer: "napari.Viewer", parent: Optional[QWidget] = None) -> None:
         self.original_parent = parent
         super().__init__(parent)
         self.viewer = viewer
@@ -85,7 +85,7 @@ class NapariCopickGalleryWidget(QWidget):
         label.setStyleSheet("color: #888; font-size: 14px; padding: 40px;")
         layout.addWidget(label)
 
-    def set_copick_root(self, copick_root) -> None:
+    def set_copick_root(self, copick_root: Any) -> None:
         """Set the copick root for the gallery."""
         self.copick_root = copick_root
 
@@ -113,11 +113,11 @@ class NapariCopickGalleryWidget(QWidget):
 
                 # Create a temporary worker to get the best tomogram and cache it
                 class TempWorker(AbstractThumbnailWorker):
-                    def __init__(self, run, callback):
+                    def __init__(self, run: Any, callback: Any) -> None:
                         self.run = run
                         super().__init__(run, run.name, callback, force_regenerate=False)
 
-                    def start(self):
+                    def start(self) -> None:
                         # Generate thumbnail to trigger best tomogram caching
                         pixmap, error = self.generate_thumbnail_pixmap()
                         # We don't actually use the pixmap, just want the caching side effect
@@ -129,13 +129,13 @@ class NapariCopickGalleryWidget(QWidget):
                         else:
                             self.callback(None, None, "No suitable tomogram found")
 
-                    def cancel(self):
+                    def cancel(self) -> None:
                         pass
 
-                    def _array_to_pixmap(self, array):
+                    def _array_to_pixmap(self, array: Any) -> Any:
                         return None  # We don't need the actual pixmap
 
-                def on_best_tomogram_found(thumbnail_id, best_tomogram, error):
+                def on_best_tomogram_found(thumbnail_id: Any, best_tomogram: Any, error: Any) -> None:
                     if best_tomogram and not error:
                         self._load_tomogram_async(best_tomogram)
                     else:
@@ -193,7 +193,7 @@ class NapariCopickGalleryWidget(QWidget):
         """Handle loading progress updates."""
         pass
 
-    def _on_tomogram_loaded(self, result: dict) -> None:
+    def _on_tomogram_loaded(self, result: Dict[str, Any]) -> None:
         """Handle successful tomogram loading."""
         try:
             data = result["data"]

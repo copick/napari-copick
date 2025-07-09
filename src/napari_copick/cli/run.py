@@ -1,5 +1,5 @@
 import sys
-from typing import List
+from typing import Any, List, Optional
 
 import click
 import napari
@@ -10,8 +10,8 @@ from napari_copick.widget import CopickPlugin
 
 
 def run_napari(
-    config: str = None,
-    dataset_ids: list[int] = None,
+    config: Optional[str] = None,
+    dataset_ids: Optional[List[int]] = None,
     overlay_root: str = "/tmp/overlay_root",
 ) -> None:
     viewer = napari.Viewer()
@@ -27,7 +27,7 @@ def run_napari(
 
 @click.group()
 @click.pass_context
-def cli(ctx):
+def cli(ctx: Any) -> None:
     pass
 
 
@@ -54,9 +54,9 @@ def cli(ctx):
 @add_debug_option
 @click.pass_context
 def run(
-    ctx,
-    config: str = None,
-    dataset_ids: List[int] = None,
+    ctx: Any,
+    config: Optional[str] = None,
+    dataset_ids: Optional[List[int]] = None,
     overlay_root: str = "/tmp/overlay_root",
     debug: bool = False,
 ) -> None:

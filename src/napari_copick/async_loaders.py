@@ -2,13 +2,16 @@
 Async data loaders for napari-copick using napari's threading system.
 """
 
+from typing import Any, Dict
+
+import copick
 import numpy as np
 import zarr
 from napari.qt.threading import thread_worker
 
 
 @thread_worker
-def load_tomogram_worker(tomogram, resolution_level=0):
+def load_tomogram_worker(tomogram: copick.models.CopickTomogram, resolution_level: int = 0):
     """Load tomogram data in background thread using napari's threading system."""
     try:
         zarr_path = tomogram.zarr()
@@ -57,7 +60,7 @@ def load_tomogram_worker(tomogram, resolution_level=0):
 
 
 @thread_worker
-def load_segmentation_worker(segmentation, resolution_level=0):
+def load_segmentation_worker(segmentation: copick.models.CopickSegmentation, resolution_level: int = 0):
     """Load segmentation data in background thread using napari's threading system."""
     try:
         zarr_path = segmentation.zarr()
@@ -115,7 +118,7 @@ def load_segmentation_worker(segmentation, resolution_level=0):
 
 
 @thread_worker
-def expand_run_worker(run):
+def expand_run_worker(run: copick.models.CopickRun):
     """Expand a run in the tree by gathering voxel spacings and picks data."""
     try:
         yield f"Loading voxel spacings for {run.meta.name}..."
@@ -146,7 +149,7 @@ def expand_run_worker(run):
 
 
 @thread_worker
-def expand_voxel_spacing_worker(voxel_spacing):
+def expand_voxel_spacing_worker(voxel_spacing: copick.models.CopickVoxelSpacing):
     """Expand a voxel spacing in the tree by gathering tomograms and segmentations."""
     try:
         yield f"Loading tomograms for voxel size {voxel_spacing.meta.voxel_size}..."
@@ -162,4 +165,72 @@ def expand_voxel_spacing_worker(voxel_spacing):
 
     except Exception as e:
         error_msg = f"Error expanding voxel spacing: {str(e)}"
+        raise ValueError(error_msg) from e
+
+
+@thread_worker
+def save_segmentation_worker(save_params: Dict[str, Any]):
+    """Save segmentation data in background thread with scaling and saving operations."""
+    try:
+        layer = save_params["layer"]
+        run = save_params["run"]
+        voxel_spacing = save_params["voxel_spacing"]
+        object_name = save_params["object_name"]
+        session_id = save_params["session_id"]
+        user_id = save_params["user_id"]
+        exist_ok = save_params.get("exist_ok", False)
+
+        yield f"Creating segmentation '{object_name}' for run '{run.name}'..."
+
+        # Create new segmentation
+        segmentation = run.new_segmentation(
+            voxel_size=voxel_spacing.voxel_size,
+            name=object_name,
+            session_id=session_id,
+            user_id=user_id,
+            is_multilabel=False,  # Single label segmentation
+            exist_ok=exist_ok,
+        )
+
+        yield "Getting segmentation data from layer..."
+
+        # Get the segmentation data
+        seg_data = layer.data
+
+        yield "Determining target shape from tomogram..."
+
+        # Import the utility functions
+        from napari_copick.save_utils import get_tomogram_shape_at_level_0, scale_segmentation_to_target_shape
+
+        # Handle scaling to tomogram zarr layer '0' dimensions if needed
+        target_shape = get_tomogram_shape_at_level_0(run, voxel_spacing)
+
+        if seg_data.shape != target_shape:
+            yield f"Scaling segmentation from {seg_data.shape} to {target_shape}..."
+            seg_data = scale_segmentation_to_target_shape(seg_data, target_shape)
+        else:
+            yield "Segmentation shape matches target, no scaling needed..."
+
+        yield "Converting data to uint8 format..."
+
+        # Ensure data is uint8 for segmentation
+        seg_data = seg_data.astype(np.uint8)
+
+        yield "Saving segmentation to copick using from_numpy method..."
+
+        # Save using copick's from_numpy method which follows copick conventions
+        segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
+
+        yield f"Successfully saved segmentation '{object_name}' to run '{run.name}'"
+
+        return {
+            "success": True,
+            "message": f"Saved segmentation '{object_name}' to run '{run.name}'",
+            "segmentation": segmentation,
+            "object_name": object_name,
+            "run_name": run.name,
+        }
+
+    except Exception as e:
+        error_msg = f"Error saving segmentation: {str(e)}"
         raise ValueError(error_msg) from e
