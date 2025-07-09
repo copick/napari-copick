@@ -1,6 +1,6 @@
 """napari-specific gallery widget implementation using shared copick-shared-ui."""
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from qtpy.QtCore import Signal, Slot
 from qtpy.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
@@ -108,127 +108,60 @@ class NapariCopickGalleryWidget(QWidget):
                 # Let the shared gallery system handle the selection - this will trigger
                 # the thumbnail worker which properly caches the best tomogram info
 
-                # Find the best tomogram by triggering a thumbnail worker that will cache the selection
+                # Use the shared system to find the best tomogram
                 from copick_shared_ui.workers.base import AbstractThumbnailWorker
 
-                # Create a temporary worker to get the best tomogram and cache it
-                class TempWorker(AbstractThumbnailWorker):
+                class BestTomogramFinder(AbstractThumbnailWorker):
                     def __init__(self, run: Any, callback: Any) -> None:
                         self.run = run
+                        self.callback = callback
                         super().__init__(run, run.name, callback, force_regenerate=False)
 
                     def start(self) -> None:
-                        # Generate thumbnail to trigger best tomogram caching
-                        pixmap, error = self.generate_thumbnail_pixmap()
-                        # We don't actually use the pixmap, just want the caching side effect
-
-                        # Now get the best tomogram from the internal cache
-                        best_tomogram = self._select_best_tomogram(self.run)
-                        if best_tomogram:
-                            self.callback(None, best_tomogram, None)
-                        else:
-                            self.callback(None, None, "No suitable tomogram found")
+                        try:
+                            best_tomogram = self._select_best_tomogram(self.run)
+                            if best_tomogram:
+                                self.callback(None, best_tomogram, None)
+                            else:
+                                self.callback(None, None, "No suitable tomogram found")
+                        except Exception as e:
+                            self.callback(None, None, str(e))
 
                     def cancel(self) -> None:
                         pass
 
                     def _array_to_pixmap(self, array: Any) -> Any:
-                        return None  # We don't need the actual pixmap
+                        return None  # Not needed for tomogram finding
 
                 def on_best_tomogram_found(thumbnail_id: Any, best_tomogram: Any, error: Any) -> None:
                     if best_tomogram and not error:
-                        self._load_tomogram_async(best_tomogram)
+                        self._load_tomogram_from_gallery(best_tomogram)
                     else:
                         print(f"Could not find best tomogram for run {run.name}: {error}")
 
-                # Use the worker to get and cache the best tomogram
-                worker = TempWorker(run, on_best_tomogram_found)
-                worker.start()
+                finder = BestTomogramFinder(run, on_best_tomogram_found)
+                finder.start()
 
         except Exception as e:
             print(f"Error loading tomogram from gallery: {e}")
 
-    def _load_tomogram_async(self, tomogram: "CopickTomogram") -> None:
-        """Load tomogram asynchronously using the same mechanism as the tree view."""
+    def _load_tomogram_from_gallery(self, tomogram: "CopickTomogram") -> None:
+        """Load tomogram from gallery using the data loader manager."""
         try:
-            # Import the async loader
-            from .async_loaders import load_tomogram_worker
-
-            # Get the resolution level from the parent widget's resolution combo
-            # Find the parent CopickPlugin widget to access resolution_combo
+            # Find the parent CopickPlugin widget to access the data loader
             parent_widget = self.parent()
-            while parent_widget and not hasattr(parent_widget, "resolution_combo"):
+            while parent_widget and not hasattr(parent_widget, "data_loader"):
                 parent_widget = parent_widget.parent()
 
-            if parent_widget and hasattr(parent_widget, "resolution_combo"):
-                resolution_level = parent_widget.resolution_combo.currentIndex()
-
-                # Add global loading indicator
-                operation_id = f"gallery_load_{tomogram.tomo_type}_{id(tomogram)}"
-                parent_widget._add_operation(operation_id, f"Loading {tomogram.tomo_type} from gallery...")
-
+            if parent_widget and hasattr(parent_widget, "data_loader"):
+                # Use the data loader manager to load the tomogram
+                # Pass None for the tree item since this is from the gallery
+                parent_widget.data_loader.load_tomogram_async(tomogram, None)
             else:
-                # Fallback to medium resolution if we can't find the combo
-                resolution_level = 1
-                operation_id = None
-
-            # Create worker using napari's threading system
-            worker = load_tomogram_worker(tomogram, resolution_level)
-
-            # Store operation info for cleanup
-            self._current_operation = (operation_id, parent_widget, tomogram)
-
-            # Connect signals
-            worker.yielded.connect(lambda msg: self._on_progress(msg, tomogram))
-            worker.returned.connect(lambda result: self._on_tomogram_loaded(result))
-            worker.errored.connect(lambda e: self._on_error(str(e), tomogram))
-
-            # Start the worker
-            worker.start()
+                print("Could not find parent widget with data_loader")
 
         except Exception as e:
-            print(f"Error starting async tomogram load: {e}")
-
-    def _on_progress(self, message: str, tomogram: "CopickTomogram") -> None:
-        """Handle loading progress updates."""
-        pass
-
-    def _on_tomogram_loaded(self, result: Dict[str, Any]) -> None:
-        """Handle successful tomogram loading."""
-        try:
-            data = result["data"]
-            voxel_size = result["voxel_size"]
-            name = result["name"]
-
-            # Add to napari viewer with the same naming convention as tree view
-            self.viewer.add_image(
-                data,
-                name=name,  # Use the same name format as tree view
-                scale=voxel_size,
-                opacity=0.8,
-                blending="additive",
-            )
-
-            # Clean up global loading indicator
-            self._cleanup_operation()
-
-        except Exception:
-            # Clean up global loading indicator even on error
-            self._cleanup_operation()
-
-    def _on_error(self, error: str, tomogram: "CopickTomogram") -> None:
-        """Handle tomogram loading errors."""
-        print(f"Gallery: Error loading {tomogram.tomo_type}: {error}")
-        # Clean up global loading indicator
-        self._cleanup_operation()
-
-    def _cleanup_operation(self) -> None:
-        """Clean up the current loading operation."""
-        if hasattr(self, "_current_operation"):
-            operation_id, parent_widget, tomogram = self._current_operation
-            if operation_id and parent_widget and hasattr(parent_widget, "_remove_operation"):
-                parent_widget._remove_operation(operation_id)
-            delattr(self, "_current_operation")
+            print(f"Error loading tomogram from gallery: {e}")
 
     @Slot(object)
     def _on_info_requested(self, run: "CopickRun") -> None:
@@ -246,4 +179,4 @@ class NapariCopickGalleryWidget(QWidget):
         if parent_widget and hasattr(parent_widget, "switch_to_tree_view"):
             parent_widget.switch_to_tree_view()
         else:
-            pass
+            print("Could not find parent widget with switch_to_tree_view method")

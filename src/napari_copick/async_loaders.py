@@ -108,7 +108,7 @@ def load_segmentation_worker(segmentation: copick.models.CopickSegmentation, res
             "segmentation": segmentation,
             "data": loaded_data,
             "voxel_size": voxel_size,
-            "name": f"Segmentation: {segmentation.meta.name} (Level {resolution_level})",
+            "name": f"Segmentation: {segmentation.meta.name} ({segmentation.user_id} | {segmentation.session_id}) (Level {resolution_level})",
             "resolution_level": resolution_level,
         }
 

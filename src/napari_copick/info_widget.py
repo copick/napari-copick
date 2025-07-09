@@ -6,7 +6,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QWidget
 
 try:
-    from napari.qt.threading import create_worker, thread_worker  # noqa: F401
+    from napari.qt.threading import create_worker
 
     NAPARI_AVAILABLE = True
 except ImportError:
@@ -18,7 +18,6 @@ try:
         AbstractImageInterface,
         AbstractInfoSessionInterface,
         AbstractThemeInterface,
-        AbstractWorkerInterface,  # noqa: F401
     )
     from copick_shared_ui.platform.napari_integration import NapariWorkerInterface
     from copick_shared_ui.theming.colors import get_color_scheme
@@ -60,7 +59,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
             # Find the tomogram in the tree and load it
             # For now, just use the plugin's async loading mechanism
             # This could be enhanced to find the exact tree item
-            self.plugin_widget.load_tomogram_async(tomogram, None)
+            self.plugin_widget.data_loader.load_tomogram_async(tomogram, None)
 
         def navigate_to_gallery(self) -> None:
             """Navigate back to gallery view."""
@@ -172,7 +171,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
         def _on_tomogram_clicked(self, tomogram: "CopickTomogram") -> None:
             """Handle tomogram click by loading it in napari."""
             # Use the plugin's loading mechanism
-            self.plugin_widget.load_tomogram_async(tomogram, None)
+            self.plugin_widget.data_loader.load_tomogram_async(tomogram, None)
 
 else:
     # Fallback if dependencies are not available
@@ -193,9 +192,5 @@ else:
             self.setLayout(layout)
 
         def set_run(self, run: Any) -> None:
-            """Dummy method for compatibility."""
-            pass
-
-        def delete(self) -> None:
             """Dummy method for compatibility."""
             pass

@@ -68,12 +68,12 @@ class CopickTreeWidget(QTreeWidget):
             self.parent_widget.info_label.setText(f"Voxel Spacing: {data.voxel_size}")
             self.lazy_load_voxel_spacing(item, data)
         elif isinstance(data, copick.models.CopickTomogram):
-            self.parent_widget.load_tomogram_async(data, item)
+            self.parent_widget.data_loader.load_tomogram_async(data, item)
         elif isinstance(data, copick.models.CopickSegmentation):
-            self.parent_widget.load_segmentation_async(data, item)
+            self.parent_widget.data_loader.load_segmentation_async(data, item)
         elif isinstance(data, copick.models.CopickPicks):
             parent_run = self.get_parent_run(item)
-            self.parent_widget.load_picks(data, parent_run)
+            self.parent_widget.data_loader.load_picks(data, parent_run)
 
     def get_parent_run(self, item: QTreeWidgetItem) -> Optional[copick.models.CopickRun]:
         """Get the parent run for a given tree item."""
@@ -107,9 +107,9 @@ class CopickTreeWidget(QTreeWidget):
         worker = expand_run_worker(run)
 
         # Connect signals
-        worker.yielded.connect(lambda msg: self.parent_widget.on_progress(msg, run, "run"))
+        worker.yielded.connect(lambda msg: self.parent_widget.data_loader._on_progress(msg, run, "run"))
         worker.returned.connect(lambda result: self.on_run_expanded(result))
-        worker.errored.connect(lambda e: self.parent_widget.on_error(str(e), run, "run"))
+        worker.errored.connect(lambda e: self.parent_widget.data_loader._on_error(str(e), run, "run"))
         worker.finished.connect(lambda: self.cleanup_expansion_worker(run))
 
         # Start the worker
@@ -128,25 +128,55 @@ class CopickTreeWidget(QTreeWidget):
             item = self.expansion_items[run]
             self.remove_loading_indicator(item)
 
+            # Check if item is still valid before proceeding
+            try:
+                item.text(0)  # Test if item is still valid
+            except RuntimeError:
+                # Item has been deleted, clean up and return
+                self.cleanup_expansion_worker(run)
+                return
+
             # Add voxel spacings
             for voxel_spacing in voxel_spacings:
                 spacing_item = QTreeWidgetItem(item, [f"Voxel Spacing: {voxel_spacing.voxel_size}"])
                 spacing_item.setData(0, Qt.UserRole, voxel_spacing)
                 spacing_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
 
-            # Add picks nested by user_id, session_id, and pickable_object_name
+            # Add picks nested by pickable_object_name, then "user_id | session_id"
             picks_item = QTreeWidgetItem(item, ["Picks"])
+
+            # Group picks by object type first
+            picks_by_object = {}
             for user_id, sessions in picks_data.items():
-                user_item = QTreeWidgetItem(picks_item, [f"User: {user_id}"])
                 for session_id, picks in sessions.items():
-                    session_item = QTreeWidgetItem(user_item, [f"Session: {session_id}"])
                     for pick in picks:
-                        pick_child = QTreeWidgetItem(session_item, [pick.pickable_object_name])
-                        pick_child.setData(0, Qt.UserRole, pick)
+                        object_name = pick.pickable_object_name
+                        if object_name not in picks_by_object:
+                            picks_by_object[object_name] = []
+                        picks_by_object[object_name].append((user_id, session_id, pick))
+
+            # Create tree structure: Object Type > "User | Session"
+            for object_name in sorted(picks_by_object.keys()):
+                object_item = QTreeWidgetItem(picks_item, [object_name])
+
+                # Group by user|session and sort by user
+                user_session_picks = {}
+                for user_id, session_id, pick in picks_by_object[object_name]:
+                    user_session_key = f"{user_id} | {session_id}"
+                    if user_session_key not in user_session_picks:
+                        user_session_picks[user_session_key] = []
+                    user_session_picks[user_session_key].append(pick)
+
+                # Sort by user (first part before |)
+                for user_session_key in sorted(user_session_picks.keys(), key=lambda x: x.split(" | ")[0]):
+                    user_session_item = QTreeWidgetItem(object_item, [user_session_key])
+                    # Set the first pick as the data (for backwards compatibility)
+                    user_session_item.setData(0, Qt.UserRole, user_session_picks[user_session_key][0])
+
             item.addChild(picks_item)
 
-            # Restore expansion state for this run's children
-            self.parent_widget.restore_expansion_for_item(item, run.name)
+            # Continue expansion restoration for newly created children
+            self.parent_widget.tree_expansion_manager._force_expand_item_if_needed(item, "")
 
             self.parent_widget.info_label.setText(f"Expanded run: {run.name}")
 
@@ -176,9 +206,13 @@ class CopickTreeWidget(QTreeWidget):
         worker = expand_voxel_spacing_worker(voxel_spacing)
 
         # Connect signals
-        worker.yielded.connect(lambda msg: self.parent_widget.on_progress(msg, voxel_spacing, "voxel_spacing"))
+        worker.yielded.connect(
+            lambda msg: self.parent_widget.data_loader._on_progress(msg, voxel_spacing, "voxel_spacing"),
+        )
         worker.returned.connect(lambda result: self.on_voxel_spacing_expanded(result))
-        worker.errored.connect(lambda e: self.parent_widget.on_error(str(e), voxel_spacing, "voxel_spacing"))
+        worker.errored.connect(
+            lambda e: self.parent_widget.data_loader._on_error(str(e), voxel_spacing, "voxel_spacing"),
+        )
         worker.finished.connect(lambda: self.cleanup_expansion_worker(voxel_spacing))
 
         # Start the worker
@@ -197,6 +231,14 @@ class CopickTreeWidget(QTreeWidget):
             item = self.expansion_items[voxel_spacing]
             self.remove_loading_indicator(item)
 
+            # Check if item is still valid before proceeding
+            try:
+                item.text(0)  # Test if item is still valid
+            except RuntimeError:
+                # Item has been deleted, clean up and return
+                self.cleanup_expansion_worker(voxel_spacing)
+                return
+
             # Add tomograms
             tomogram_item = QTreeWidgetItem(item, ["Tomograms"])
             for tomogram in tomograms:
@@ -204,23 +246,41 @@ class CopickTreeWidget(QTreeWidget):
                 tomo_child.setData(0, Qt.UserRole, tomogram)
             item.addChild(tomogram_item)
 
-            # Add segmentations with user/session structure like picks
+            # Add segmentations with object type > "user | session" structure
             segmentation_item = QTreeWidgetItem(item, ["Segmentations"])
-            segmentations_by_user_session = self.group_segmentations_by_user_session(segmentations)
+            segmentations_by_object = self.group_segmentations_by_object_type(segmentations)
 
-            for user_id, sessions in segmentations_by_user_session.items():
-                user_item = QTreeWidgetItem(segmentation_item, [f"User: {user_id}"])
-                for session_id, segmentations_in_session in sessions.items():
-                    session_item = QTreeWidgetItem(user_item, [f"Session: {session_id}"])
-                    for segmentation in segmentations_in_session:
-                        seg_child = QTreeWidgetItem(session_item, [segmentation.name])
-                        seg_child.setData(0, Qt.UserRole, segmentation)
+            # Create tree structure: Object Type > "User | Session"
+            for object_name in sorted(segmentations_by_object.keys()):
+                object_item = QTreeWidgetItem(segmentation_item, [object_name])
+
+                # Group by user|session and sort by user
+                user_session_segmentations = {}
+                for segmentation in segmentations_by_object[object_name]:
+                    user_session_key = f"{segmentation.user_id} | {segmentation.session_id}"
+                    if user_session_key not in user_session_segmentations:
+                        user_session_segmentations[user_session_key] = []
+                    user_session_segmentations[user_session_key].append(segmentation)
+
+                # Sort by user (first part before |)
+                for user_session_key in sorted(user_session_segmentations.keys(), key=lambda x: x.split(" | ")[0]):
+                    user_session_item = QTreeWidgetItem(object_item, [user_session_key])
+                    # Set the first segmentation as the data (for backwards compatibility)
+                    user_session_item.setData(0, Qt.UserRole, user_session_segmentations[user_session_key][0])
+
             item.addChild(segmentation_item)
 
-            # Restore expansion state for this voxel spacing's children
-            run_name = voxel_spacing.run.name
-            voxel_path = f"{run_name}/Voxel Spacing: {voxel_spacing.voxel_size}"
-            self.parent_widget.restore_expansion_for_item(item, voxel_path)
+            # Continue expansion restoration for newly created children
+            # Build the correct path prefix for the voxel spacing's parent
+            parent_run = self.get_parent_run(item)
+            if parent_run:
+                # The path prefix should be the parent run name only
+                # so that when _force_expand_item_if_needed processes the voxel spacing item,
+                # it will create the correct path: "249/Voxel Spacing: 13.48"
+                parent_path = parent_run.name
+                self.parent_widget.tree_expansion_manager._force_expand_item_if_needed(item, parent_path)
+            else:
+                self.parent_widget.tree_expansion_manager._force_expand_item_if_needed(item, "")
 
             self.parent_widget.info_label.setText(f"Expanded voxel spacing: {voxel_spacing.voxel_size}")
 
@@ -228,23 +288,17 @@ class CopickTreeWidget(QTreeWidget):
         operation_id = f"expand_voxel_spacing_{voxel_spacing.voxel_size}"
         self.parent_widget._remove_operation(operation_id)
 
-    def group_segmentations_by_user_session(
+    def group_segmentations_by_object_type(
         self,
         segmentations: List[copick.models.CopickSegmentation],
-    ) -> Dict[str, Dict[str, List[copick.models.CopickSegmentation]]]:
-        """Group segmentations by user_id and session_id like picks."""
+    ) -> Dict[str, List[copick.models.CopickSegmentation]]:
+        """Group segmentations by object type (name)."""
         grouped = {}
         for segmentation in segmentations:
-            user_id = segmentation.user_id
-            session_id = segmentation.session_id
-
-            if user_id not in grouped:
-                grouped[user_id] = {}
-            if session_id not in grouped[user_id]:
-                grouped[user_id][session_id] = []
-
-            grouped[user_id][session_id].append(segmentation)
-
+            object_name = segmentation.name
+            if object_name not in grouped:
+                grouped[object_name] = []
+            grouped[object_name].append(segmentation)
         return grouped
 
     def add_loading_indicator(self, item: QTreeWidgetItem) -> None:
@@ -276,13 +330,24 @@ class CopickTreeWidget(QTreeWidget):
 
     def remove_loading_indicator(self, item: QTreeWidgetItem) -> None:
         """Remove the loading indicator from the tree item and restore original text."""
-        self.setItemWidget(item, 0, None)
+        try:
+            # Check if the item is still valid (not deleted)
+            if item is None:
+                return
 
-        # Restore original text if stored
-        original_text = item.data(0, Qt.UserRole + 1)
-        if original_text:
-            item.setText(0, original_text)
-            item.setData(0, Qt.UserRole + 1, None)  # Clear stored text
+            # Try to access the item to see if it's still valid
+            item.text(0)
+
+            self.setItemWidget(item, 0, None)
+
+            # Restore original text if stored
+            original_text = item.data(0, Qt.UserRole + 1)
+            if original_text:
+                item.setText(0, original_text)
+                item.setData(0, Qt.UserRole + 1, None)  # Clear stored text
+        except RuntimeError:
+            # Item has been deleted, ignore
+            pass
 
     def cleanup_expansion_worker(self, data_object: Any) -> None:
         """Clean up expansion worker and associated data."""
