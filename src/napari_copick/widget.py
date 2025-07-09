@@ -753,7 +753,6 @@ class CopickPlugin(QWidget):
                 colormap = self.get_copick_colormap()
                 painting_labels = [obj.label for obj in self.root.pickable_objects]
                 class_labels_mapping = {obj.label: obj.name for obj in self.root.pickable_objects}
-                print(f"DEBUG: Using multilabel colormap for {segmentation.name}")
             else:
                 # For single label segmentations, find the matching pickable object
                 matching_obj = None
@@ -770,13 +769,11 @@ class CopickPlugin(QWidget):
                     }
                     painting_labels = [1]  # Only allow painting with label 1
                     class_labels_mapping = {1: matching_obj.name}
-                    print(f"DEBUG: Using single label colormap for {segmentation.name} -> {matching_obj.color}")
                 else:
                     # Fallback to default if no matching object found
                     colormap = {0: np.array([0, 0, 0, 0]), 1: np.array([1, 1, 1, 1])}
                     painting_labels = [1]
                     class_labels_mapping = {1: segmentation.name}
-                    print(f"DEBUG: No matching object found for {segmentation.name}, using white")
 
             painting_layer = self.viewer.add_labels(loaded_data, name=name, scale=voxel_size)
             painting_layer.colormap = DirectLabelColormap(color_dict=colormap)
@@ -856,15 +853,9 @@ class CopickPlugin(QWidget):
         if not pickable_objects:
             pickable_objects = self.root.pickable_objects
 
-        # Debug output to investigate color mapping issue
-        print(f"DEBUG: Creating colormap for {len(pickable_objects)} pickable objects:")
-        for obj in pickable_objects:
-            print(f"  - Label {obj.label}: '{obj.name}' -> Color {obj.color}")
-
         colormap = {obj.label: np.array(obj.color) / 255.0 for obj in pickable_objects}
         colormap[None] = np.array([1, 1, 1, 1])
 
-        print(f"DEBUG: Final colormap: {colormap}")
         return colormap
 
     def load_picks(self, pick_set, parent_run):
@@ -872,9 +863,19 @@ class CopickPlugin(QWidget):
             if pick_set:
                 if pick_set.points:
                     points = [(p.location.z, p.location.y, p.location.x) for p in pick_set.points]
-                    color = (
-                        pick_set.color if pick_set.color else (255, 255, 255, 255)
-                    )  # Default to white if color is not set
+
+                    # Find the matching pickable object to get the correct color
+                    pickable_object = None
+                    for obj in self.root.pickable_objects:
+                        if obj.name == pick_set.pickable_object_name:
+                            pickable_object = obj
+                            break
+
+                    if pickable_object:  # noqa: SIM108
+                        color = pickable_object.color
+                    else:
+                        color = (255, 255, 255, 255)  # Default to white if no matching object found
+
                     colors = np.tile(
                         np.array(
                             [
@@ -886,9 +887,6 @@ class CopickPlugin(QWidget):
                         ),
                         (len(points), 1),
                     )  # Create an array with the correct shape
-                    pickable_object = [
-                        obj for obj in self.root.pickable_objects if obj.name == pick_set.pickable_object_name
-                    ][0]
                     # TODO hardcoded default point size
                     point_size = pickable_object.radius if pickable_object.radius else 50
                     self.viewer.add_points(
