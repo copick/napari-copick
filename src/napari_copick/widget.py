@@ -888,14 +888,15 @@ class CopickPlugin(QWidget):
                         (len(points), 1),
                     )  # Create an array with the correct shape
                     # TODO hardcoded default point size
-                    point_size = pickable_object.radius if pickable_object.radius else 50
-                    self.viewer.add_points(
+                    point_size = pickable_object.radius if pickable_object.radius else 50  # Default point size
+                    points = self.viewer.add_points(
                         points,
                         name=f"Picks: {pick_set.pickable_object_name}",
                         size=point_size,
                         face_color=colors,
                         out_of_slice_display=True,
                     )
+                    points.size = [200] * len(points.size)  # Set a default size for all points
                     self.info_label.setText(f"Loaded Picks: {pick_set.pickable_object_name}")
                 else:
                     self.info_label.setText(f"No points found for Picks: {pick_set.pickable_object_name}")
