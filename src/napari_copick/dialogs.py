@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 import copick
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,

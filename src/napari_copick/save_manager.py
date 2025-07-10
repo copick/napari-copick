@@ -1,7 +1,7 @@
 """Save operations and dialogs for napari-copick plugin."""
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from napari.layers import Labels, Points
 from qtpy.QtWidgets import QDialog
@@ -222,3 +222,57 @@ class SaveManager:
             save_type: Type of save operation
         """
         self.parent_widget.info_label.setText(f"{message}")
+
+    def delete_items_async(self, items: List[Dict[str, Any]]) -> None:
+        """Delete items asynchronously with loading indicator.
+
+        Args:
+            items: List of items to delete
+        """
+        # Create a unique operation ID for this delete operation
+        operation_id = f"delete_items_{id(items)}"
+
+        # Add global loading indicator
+        self.parent_widget._add_operation(operation_id, f"Deleting {len(items)} items...")
+
+        # Perform deletion synchronously for now (could be made async later)
+        try:
+            deleted_count = 0
+            affected_runs = set()
+
+            self.logger.info(f"Starting deletion of {len(items)} item groups")
+
+            for item in items:
+                self.logger.info(f"Processing item: {item}")
+                if item["type"] == "picks":
+                    self.logger.info(f"Deleting {len(item['picks'])} picks")
+                    for pick in item["picks"]:
+                        self.logger.info(f"Deleting pick: {pick}")
+                        affected_runs.add(pick.run)
+                        pick.delete()
+                        deleted_count += 1
+                elif item["type"] in ["segmentations", "segmentation"]:  # Handle both singular and plural
+                    self.logger.info(f"Deleting {len(item['segmentations'])} segmentations")
+                    for segmentation in item["segmentations"]:
+                        self.logger.info(f"Deleting segmentation: {segmentation}")
+                        affected_runs.add(segmentation.run)
+                        segmentation.delete()
+                        deleted_count += 1
+
+            # Update UI
+            self.parent_widget.info_label.setText(f"Successfully deleted {deleted_count} items.")
+
+            # Only refresh the runs that had items deleted from them
+            for run in affected_runs:
+                run.refresh_segmentations()
+                run.refresh_picks()
+
+            # Refresh tree to reflect changes
+            self.parent_widget.tree_expansion_manager.populate_tree(preserve_expansion=True)
+
+        except Exception as e:
+            self.parent_widget.info_label.setText(f"Error deleting items: {str(e)}")
+            self.logger.exception(f"Error deleting items: {str(e)}")
+        finally:
+            # Remove global loading indicator
+            self.parent_widget._remove_operation(operation_id)

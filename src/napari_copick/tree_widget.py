@@ -6,8 +6,11 @@ from typing import Any, Dict, List, Optional
 import copick
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
+    QAction,
     QHBoxLayout,
     QLabel,
+    QMenu,
+    QMessageBox,
     QProgressBar,
     QTreeWidget,
     QTreeWidgetItem,
@@ -40,7 +43,7 @@ class CopickTreeWidget(QTreeWidget):
         self.itemExpanded.connect(self.handle_item_expand)
         self.itemClicked.connect(self.handle_item_click)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.parent_widget.open_context_menu)
+        self.customContextMenuRequested.connect(self.open_context_menu)
 
     def populate_tree(self, root: copick.models.CopickRoot) -> None:
         """Populate the tree with runs from the copick root."""
@@ -365,3 +368,64 @@ class CopickTreeWidget(QTreeWidget):
                 worker.quit()
         self.expansion_workers.clear()
         self.expansion_items.clear()
+
+    def open_context_menu(self, position) -> None:
+        """Open context menu for right-click on tree items."""
+        item = self.itemAt(position)
+        if not item:
+            return
+
+        data = item.data(0, Qt.UserRole)
+
+        # Only show delete option for picks and segmentations
+        if isinstance(data, (copick.models.CopickPicks, copick.models.CopickSegmentation)):
+            menu = QMenu(self)
+
+            # Delete action
+            delete_action = QAction("🗑️ Delete", self)
+            delete_action.triggered.connect(lambda: self.delete_item(item, data))
+            menu.addAction(delete_action)
+
+            # Show menu at cursor position
+            menu.exec_(self.mapToGlobal(position))
+
+    def delete_item(self, item: QTreeWidgetItem, data) -> None:
+        """Delete a specific picks or segmentation item."""
+        if isinstance(data, copick.models.CopickPicks):
+            item_type = "picks"
+            item_name = f"{data.pickable_object_name} picks ({data.user_id} | {data.session_id})"
+        elif isinstance(data, copick.models.CopickSegmentation):
+            item_type = "segmentation"
+            item_name = f"{data.name} segmentation ({data.user_id} | {data.session_id})"
+        else:
+            return
+
+        # Show confirmation dialog
+        reply = QMessageBox.question(
+            self,
+            "Confirm Deletion",
+            f"Are you sure you want to delete the {item_type}:\n\n{item_name}\n\nThis action cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+
+        if reply == QMessageBox.Yes:
+            try:
+                # Create item structure for delete_items_async
+                item_data = {
+                    "type": item_type,
+                    "object_name": data.pickable_object_name if hasattr(data, "pickable_object_name") else data.name,
+                    "user_session": f"{data.user_id} | {data.session_id}",
+                }
+
+                if item_type == "picks":
+                    item_data["picks"] = [data]
+                else:
+                    item_data["segmentations"] = [data]
+
+                # Call the delete function
+                self.parent_widget.save_manager.delete_items_async([item_data])
+
+            except Exception as e:
+                self.parent_widget.info_label.setText(f"Error deleting {item_type}: {str(e)}")
+                logger.exception(f"Error deleting {item_type}: {str(e)}")
