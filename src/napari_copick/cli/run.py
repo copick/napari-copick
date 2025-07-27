@@ -72,5 +72,6 @@ def run(
 
     run_napari(config, dataset_ids, overlay_root=overlay_root)
 
+
 if __name__ == "__main__":
     cli()
