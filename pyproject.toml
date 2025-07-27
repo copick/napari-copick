@@ -37,6 +37,7 @@ dependencies = [
     "napari-ome-zarr",
     "click",
     "copick-shared-ui==0.2.0",
+    "napari",
 ]
 authors = [
     { name = "Kyle Harrington", email = "czi@kyleharrington.com" },
