@@ -9,6 +9,8 @@
 
 A plugin for collaborative annotation in cryoET using copick
 
+![interface.png](docs/assets/interface.png)
+
 ----------------------------------
 
 This [napari] plugin was generated with [Cookiecutter] using [@napari]'s [cookiecutter-napari-plugin] template.
@@ -29,7 +31,7 @@ You can install `napari-copick` via [pip]:
 
 To install latest development version:
 
-    pip install git+https://github.com/kephale/napari-copick.git
+    pip install git+https://github.com/copick/napari-copick.git
 
 ## Usage
 
