@@ -45,7 +45,7 @@ except ImportError:
 class CopickPlugin(QWidget):
     def __init__(
         self,
-        viewer: Optional[napari.viewer.Viewer] = None,
+        viewer: "napari.viewer.Viewer" = None,
         config_path: Optional[str] = None,
         dataset_ids: Optional[List[str]] = None,
         overlay_root: str = "/tmp/overlay_root",
