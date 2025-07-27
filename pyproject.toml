@@ -33,10 +33,11 @@ dependencies = [
     "trimesh",
     "fsspec",
     "pydantic>=2",
-    "copick>=1.0.1",
+    "copick>=1.6.0",
     "napari-ome-zarr",
-    "napari",
-    "click"
+    "click",
+    "copick-shared-ui==0.2.0",
+    "napari"
 ]
 authors = [
     { name = "Kyle Harrington", email = "czi@kyleharrington.com" },
