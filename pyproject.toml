@@ -37,7 +37,7 @@ dependencies = [
     "napari-ome-zarr",
     "click",
     "copick-shared-ui==0.2.0",
-    "napari"
+    "napari",
 ]
 authors = [
     { name = "Kyle Harrington", email = "czi@kyleharrington.com" },
@@ -120,7 +120,10 @@ ignore = [
     "N806",   # Variable in function should be lowercase
     "N999",   # Invalid module name
     "E501",   # line too long
+    "F401",   # module imported but unused
     "C408",   # rewrite empty built-ins as literals
+    "SIM108", #  `key in dict` instead of `key in dict.keys()`
+    "SIM118", # Simplify boolean expressions.
     "T201",   # print statements.
     "DTZ007", # Datetime objects without timezones.
     "DTZ005", # More datetimes without timezones.

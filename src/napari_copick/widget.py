@@ -1,115 +1,55 @@
 import logging
+from typing import Any, Dict, List, Optional, Set, Union
 
 import copick
 import napari
 import numpy as np
-import zarr
-from napari.utils import DirectLabelColormap
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFileDialog,
-    QFormLayout,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QMenu,
     QProgressBar,
     QPushButton,
-    QSpinBox,
     QTabWidget,
-    QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from .async_loaders import (
-    expand_run_worker,
-    expand_voxel_spacing_worker,
-    load_segmentation_worker,
-    load_tomogram_worker,
-)
-
-# Import thumbnail cache setup
-try:
-    from copick_shared_ui.core.image_interface import get_image_interface
-    from copick_shared_ui.core.thumbnail_cache import set_global_cache_config, set_global_cache_image_interface
-except ImportError:
-    set_global_cache_config = None
-    set_global_cache_image_interface = None
-    get_image_interface = None
-
-# Import the shared EditObjectTypesDialog
-try:
-    from copick_shared_ui.ui.edit_object_types_dialog import EditObjectTypesDialog
-except ImportError:
-    # Fallback if shared component is not available
-    EditObjectTypesDialog = None
+from napari_copick.config_manager import ConfigManager
+from napari_copick.data_loader import DataLoader
+from napari_copick.save_manager import SaveManager
+from napari_copick.tree_expansion_manager import TreeExpansionManager
+from napari_copick.tree_widget import CopickTreeWidget
 
 # Import the gallery widget
 try:
-    from .gallery_widget import NapariCopickGalleryWidget
+    from napari_copick.gallery_widget import NapariCopickGalleryWidget
 
     GALLERY_AVAILABLE = True
 except ImportError:
     GALLERY_AVAILABLE = False
+    NapariCopickGalleryWidget = None
 
 # Import the info widget
 try:
-    from .info_widget import NapariCopickInfoWidget
+    from napari_copick.info_widget import NapariCopickInfoWidget
 
     INFO_AVAILABLE = True
 except ImportError:
     INFO_AVAILABLE = False
-
-
-class DatasetIdDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Load from Dataset IDs")
-        self.setMinimumWidth(400)
-
-        layout = QVBoxLayout()
-
-        # Dataset IDs input
-        form_layout = QFormLayout()
-        self.dataset_ids_input = QLineEdit()
-        self.dataset_ids_input.setPlaceholderText("10000, 10001, ...")
-        form_layout.addRow("Dataset IDs (comma separated):", self.dataset_ids_input)
-
-        # Overlay root input
-        self.overlay_root_input = QLineEdit()
-        self.overlay_root_input.setText("/tmp/overlay_root")
-        form_layout.addRow("Overlay Root:", self.overlay_root_input)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-        self.setLayout(layout)
-
-    def get_values(self):
-        dataset_ids_text = self.dataset_ids_input.text()
-        dataset_ids = [int(id.strip()) for id in dataset_ids_text.split(",") if id.strip()]
-        overlay_root = self.overlay_root_input.text()
-        return dataset_ids, overlay_root
+    NapariCopickInfoWidget = None
 
 
 class CopickPlugin(QWidget):
     def __init__(
         self,
-        viewer: "napari.viewer.Viewer" = None,
-        config_path=None,
-        dataset_ids=None,
-        overlay_root="/tmp/overlay_root",
-    ):
+        viewer: Optional[napari.viewer.Viewer] = None,
+        config_path: Optional[str] = None,
+        dataset_ids: Optional[List[str]] = None,
+        overlay_root: str = "/tmp/overlay_root",
+    ) -> None:
         super().__init__()
 
         # Setup logging
@@ -120,22 +60,29 @@ class CopickPlugin(QWidget):
         else:
             self.viewer = napari.Viewer()
 
-        self.root = None
-        self.selected_run = None
-        self.current_layer = None
-        self.session_id = "17"
-        self.loading_workers = {}  # Track active loading workers
-        self.loading_items = {}  # Track tree items being loaded
-        self.expansion_workers = {}  # Track active expansion workers
-        self.expansion_items = {}  # Track tree items being expanded
+        self.root: Optional[copick.models.CopickRoot] = None
+        self.selected_run: Optional[copick.models.CopickRun] = None
+        self.current_layer: Optional[Any] = None
+        self.session_id: str = "17"
+        self.loading_workers: Dict[Any, Any] = {}  # Track active loading workers
+        self.loading_items: Dict[Any, Optional[QTreeWidgetItem]] = {}  # Track tree items being loaded
+        self.expansion_workers: Dict[Any, Any] = {}  # Track active expansion workers
+        self.expansion_items: Dict[Any, QTreeWidgetItem] = {}  # Track tree items being expanded
+
+        # Initialize manager classes
+        self.config_manager = ConfigManager(self)
+        self.tree_expansion_manager = TreeExpansionManager(self)
+        self.data_loader = DataLoader(self)
+        self.save_manager = SaveManager(self)
+
         self.setup_ui()
 
         if config_path:
-            self.load_config(config_path=config_path)
+            self.config_manager.load_config(config_path=config_path)
         elif dataset_ids:
-            self.load_from_dataset_ids(dataset_ids=dataset_ids, overlay_root=overlay_root)
+            self.config_manager.load_from_dataset_ids(dataset_ids=dataset_ids, overlay_root=overlay_root)
 
-    def setup_ui(self):
+    def setup_ui(self) -> None:
         layout = QVBoxLayout()
 
         # Config loading options
@@ -143,19 +90,19 @@ class CopickPlugin(QWidget):
 
         # Config file button
         self.load_config_button = QPushButton("Load Config File")
-        self.load_config_button.clicked.connect(self.open_file_dialog)
+        self.load_config_button.clicked.connect(self.config_manager.open_file_dialog)
         load_options_layout.addWidget(self.load_config_button)
 
         # Dataset IDs button
         self.load_dataset_button = QPushButton("Load from Dataset IDs")
-        self.load_dataset_button.clicked.connect(self.open_dataset_dialog)
+        self.load_dataset_button.clicked.connect(self.config_manager.open_dataset_dialog)
         load_options_layout.addWidget(self.load_dataset_button)
 
         layout.addLayout(load_options_layout)
 
         # Edit Object Types button
         self.edit_objects_button = QPushButton("✏️ Edit Object Types")
-        self.edit_objects_button.clicked.connect(self.open_edit_objects_dialog)
+        self.edit_objects_button.clicked.connect(self.config_manager.open_edit_objects_dialog)
         self.edit_objects_button.setEnabled(False)  # Disabled until config is loaded
         self.edit_objects_button.setToolTip("Edit or add new object types in the configuration")
         layout.addWidget(self.edit_objects_button)
@@ -168,13 +115,27 @@ class CopickPlugin(QWidget):
         tree_layout = QVBoxLayout(tree_tab)
 
         # Hierarchical tree view
-        self.tree_view = QTreeWidget()
-        self.tree_view.setHeaderLabel("Copick Project")
-        self.tree_view.itemExpanded.connect(self.handle_item_expand)
-        self.tree_view.itemClicked.connect(self.handle_item_click)
-        self.tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tree_view.customContextMenuRequested.connect(self.open_context_menu)
+        self.tree_view = CopickTreeWidget(self)
         tree_layout.addWidget(self.tree_view)
+
+        # Save buttons layout
+        save_buttons_layout = QHBoxLayout()
+
+        # Save segmentation button
+        self.save_segmentation_button = QPushButton("💾 Save Segmentation")
+        self.save_segmentation_button.clicked.connect(self.save_manager.open_save_segmentation_dialog)
+        self.save_segmentation_button.setEnabled(False)  # Disabled until config is loaded
+        self.save_segmentation_button.setToolTip("Save a segmentation layer to copick")
+        save_buttons_layout.addWidget(self.save_segmentation_button)
+
+        # Save picks button
+        self.save_picks_button = QPushButton("📍 Save Picks")
+        self.save_picks_button.clicked.connect(self.save_manager.open_save_picks_dialog)
+        self.save_picks_button.setEnabled(False)  # Disabled until config is loaded
+        self.save_picks_button.setToolTip("Save a points layer to copick")
+        save_buttons_layout.addWidget(self.save_picks_button)
+
+        tree_layout.addLayout(save_buttons_layout)
 
         self.tab_widget.addTab(tree_tab, "🌲 Tree View")
 
@@ -224,8 +185,11 @@ class CopickPlugin(QWidget):
         resolution_layout.addStretch()
         layout.addLayout(resolution_layout)
 
-        # Info label
+        # Info label with fixed width and word wrap
         self.info_label = QLabel("Select a pick to get started")
+        self.info_label.setWordWrap(True)
+        self.info_label.setMaximumWidth(600)
+        self.info_label.setMinimumHeight(20)
         layout.addWidget(self.info_label)
 
         # Global loading indicator
@@ -248,7 +212,7 @@ class CopickPlugin(QWidget):
         self.setLayout(layout)
 
         # Track active loading operations
-        self.active_operations = set()  # Set of operation identifiers
+        self.active_operations: Set[str] = set()  # Set of operation identifiers
 
     def _add_operation(self, operation_id: str, description: str = "Loading...") -> None:
         """Add an operation to the active operations and show global loading indicator."""
@@ -267,12 +231,12 @@ class CopickPlugin(QWidget):
         if self.active_operations:
             self.loading_label.setText(description)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: Any) -> None:
         """Clean up workers when widget is closed."""
         self.cleanup_workers()
         super().closeEvent(event)
 
-    def cleanup_workers(self):
+    def cleanup_workers(self) -> None:
         """Stop and clean up all active workers."""
         # Clean up loading workers
         for worker in list(self.loading_workers.values()):
@@ -287,6 +251,10 @@ class CopickPlugin(QWidget):
                 worker.quit()
         self.expansion_workers.clear()
         self.expansion_items.clear()
+
+        # Clean up tree widget workers
+        if hasattr(self, "tree_view"):
+            self.tree_view.cleanup_workers()
 
         # Clean up shared UI components' workers
         if GALLERY_AVAILABLE and hasattr(self, "gallery_widget"):
@@ -309,547 +277,10 @@ class CopickPlugin(QWidget):
             except Exception as e:
                 print(f"Warning: Could not cleanup info workers: {e}")
 
-    def open_file_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Config", "", "JSON Files (*.json)")
-        if path:
-            self.load_config(config_path=path)
-
-    def open_dataset_dialog(self):
-        dialog = DatasetIdDialog(self)
-        if dialog.exec_():
-            dataset_ids, overlay_root = dialog.get_values()
-            if dataset_ids:
-                self.load_from_dataset_ids(dataset_ids=dataset_ids, overlay_root=overlay_root)
-
-    def open_edit_objects_dialog(self):
-        """Open the EditObjectTypesDialog to manage object types"""
-        if not self.root or not self.root.config:
-            self.info_label.setText("No configuration loaded. Please load a config first.")
-            return
-
-        if EditObjectTypesDialog is None:
-            self.info_label.setText("EditObjectTypesDialog is not available. Shared component may not be installed.")
-            return
-
-        try:
-            dialog = EditObjectTypesDialog(self, self.root.pickable_objects)
-            if dialog.exec_() == QDialog.Accepted:
-                # Get the updated objects from the dialog
-                updated_objects = dialog.get_objects()
-
-                # Update the configuration
-                self.root.pickable_objects = updated_objects
-
-                # Update any UI elements that depend on the object types
-                self.populate_tree()  # Refresh the tree view
-
-                # Update any loaded segmentation layers with new colormap
-                for layer in self.viewer.layers:
-                    if hasattr(layer, "colormap") and "Segmentation:" in layer.name:
-                        layer.colormap = DirectLabelColormap(color_dict=self.get_copick_colormap())
-                        layer.painting_labels = [obj.label for obj in self.root.pickable_objects]
-
-                self.info_label.setText(f"Updated {len(updated_objects)} object types in configuration")
-        except Exception as e:
-            self.info_label.setText(f"Error opening EditObjectTypesDialog: {str(e)}")
-
-    def load_config(self, config_path=None):
-        if config_path:
-            self.root = copick.from_file(config_path)
-
-            # Initialize thumbnail cache with config file
-            if set_global_cache_config:
-                set_global_cache_config(config_path, app_name="copick")
-
-                # Set up image interface for thumbnail cache
-                if set_global_cache_image_interface and get_image_interface:
-                    image_interface = get_image_interface()
-                    if image_interface:
-                        set_global_cache_image_interface(image_interface, app_name="copick")
-
-            self.populate_tree()
-            self._update_gallery()
-            self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded
-            self.info_label.setText(f"Loaded config from {config_path}")
-
-    def load_from_dataset_ids(self, dataset_ids=None, overlay_root="/tmp/overlay_root"):
-        if dataset_ids:
-            self.root = copick.from_czcdp_datasets(
-                dataset_ids=dataset_ids,
-                overlay_root=overlay_root,
-                overlay_fs_args={"auto_mkdir": True},
-            )
-
-            # Initialize thumbnail cache with dataset-based config
-            if set_global_cache_config:
-                # For dataset-based configs, use a unique cache key based on dataset IDs
-                cache_key = f"datasets_{'-'.join(map(str, dataset_ids))}"
-                set_global_cache_config(cache_key, app_name="copick")
-
-                # Set up image interface for thumbnail cache
-                if set_global_cache_image_interface and get_image_interface:
-                    image_interface = get_image_interface()
-                    if image_interface:
-                        set_global_cache_image_interface(image_interface, app_name="copick")
-
-            self.populate_tree()
-            self._update_gallery()
-            self.edit_objects_button.setEnabled(True)  # Enable the button when config is loaded
-            self.info_label.setText(f"Loaded project from dataset IDs: {', '.join(map(str, dataset_ids))}")
-
-    def populate_tree(self):
-        self.tree_view.clear()
-        for run in self.root.runs:
-            run_item = QTreeWidgetItem(self.tree_view, [run.name])
-            run_item.setData(0, Qt.UserRole, run)
-            run_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
-
-    def handle_item_expand(self, item):
-        data = item.data(0, Qt.UserRole)
-        if isinstance(data, copick.models.CopickRun):
-            self.expand_run_async(item, data)
-        elif isinstance(data, copick.models.CopickVoxelSpacing):
-            self.expand_voxel_spacing_async(item, data)
-
-    def expand_run_async(self, item, run):
-        """
-        Expand a run asynchronously with loading indicator.
-        """
-        # Skip if already expanded or currently expanding
-        if item.childCount() > 0 or run in self.expansion_workers:
-            return
-
-        # Add loading indicators
-        self.add_loading_indicator(item)
-        self.expansion_items[run] = item
-
-        # Add global loading indicator
-        operation_id = f"expand_run_{run.name}"
-        self._add_operation(operation_id, f"Expanding run: {run.name}...")
-
-        # Create worker
-        worker = expand_run_worker(run)
-
-        # Connect signals
-        worker.yielded.connect(lambda msg: self.on_progress(msg, run, "run"))
-        worker.returned.connect(lambda result: self.on_run_expanded(result))
-        worker.errored.connect(lambda e: self.on_error(str(e), run, "run"))
-        worker.finished.connect(lambda: self.cleanup_expansion_worker(run))
-
-        # Start the worker
-        worker.start()
-        self.expansion_workers[run] = worker
-        self.info_label.setText(f"Expanding run: {run.name}...")
-
-    def on_run_expanded(self, result):
-        """
-        Handle successful run expansion.
-        """
-        run = result["run"]
-        voxel_spacings = result["voxel_spacings"]
-        picks_data = result["picks_data"]
-
-        # Remove loading indicator
-        if run in self.expansion_items:
-            item = self.expansion_items[run]
-            self.remove_loading_indicator(item)
-
-            # Add voxel spacings
-            for voxel_spacing in voxel_spacings:
-                spacing_item = QTreeWidgetItem(item, [f"Voxel Spacing: {voxel_spacing.voxel_size}"])
-                spacing_item.setData(0, Qt.UserRole, voxel_spacing)
-                spacing_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
-
-            # Add picks nested by user_id, session_id, and pickable_object_name
-            picks_item = QTreeWidgetItem(item, ["Picks"])
-            for user_id, sessions in picks_data.items():
-                user_item = QTreeWidgetItem(picks_item, [f"User: {user_id}"])
-                for session_id, picks in sessions.items():
-                    session_item = QTreeWidgetItem(user_item, [f"Session: {session_id}"])
-                    for pick in picks:
-                        pick_child = QTreeWidgetItem(session_item, [pick.pickable_object_name])
-                        pick_child.setData(0, Qt.UserRole, pick)
-            item.addChild(picks_item)
-
-            self.info_label.setText(f"Expanded run: {run.name}")
-
-        # Remove global loading indicator
-        operation_id = f"expand_run_{run.name}"
-        self._remove_operation(operation_id)
-
-    def expand_voxel_spacing_async(self, item, voxel_spacing):
-        """
-        Expand a voxel spacing asynchronously with loading indicator.
-        """
-        # Skip if already expanded or currently expanding
-        if item.childCount() > 0 or voxel_spacing in self.expansion_workers:
-            return
-
-        # Add loading indicator
-        self.add_loading_indicator(item)
-        self.expansion_items[voxel_spacing] = item
-
-        # Add global loading indicator
-        operation_id = f"expand_voxel_spacing_{voxel_spacing.voxel_size}"
-        self._add_operation(operation_id, f"Expanding voxel spacing: {voxel_spacing.voxel_size}...")
-
-        # Create worker
-        worker = expand_voxel_spacing_worker(voxel_spacing)
-
-        # Connect signals
-        worker.yielded.connect(lambda msg: self.on_progress(msg, voxel_spacing, "voxel_spacing"))
-        worker.returned.connect(lambda result: self.on_voxel_spacing_expanded(result))
-        worker.errored.connect(lambda e: self.on_error(str(e), voxel_spacing, "voxel_spacing"))
-        worker.finished.connect(lambda: self.cleanup_expansion_worker(voxel_spacing))
-
-        # Start the worker
-        worker.start()
-        self.expansion_workers[voxel_spacing] = worker
-        self.info_label.setText(f"Expanding voxel spacing: {voxel_spacing.voxel_size}...")
-
-    def on_voxel_spacing_expanded(self, result):
-        """
-        Handle successful voxel spacing expansion.
-        """
-        voxel_spacing = result["voxel_spacing"]
-        tomograms = result["tomograms"]
-        segmentations = result["segmentations"]
-
-        # Remove loading indicator
-        if voxel_spacing in self.expansion_items:
-            item = self.expansion_items[voxel_spacing]
-            self.remove_loading_indicator(item)
-
-            # Add tomograms
-            tomogram_item = QTreeWidgetItem(item, ["Tomograms"])
-            for tomogram in tomograms:
-                tomo_child = QTreeWidgetItem(tomogram_item, [tomogram.tomo_type])
-                tomo_child.setData(0, Qt.UserRole, tomogram)
-            item.addChild(tomogram_item)
-
-            # Add segmentations
-            segmentation_item = QTreeWidgetItem(item, ["Segmentations"])
-            for segmentation in segmentations:
-                seg_child = QTreeWidgetItem(segmentation_item, [segmentation.name])
-                seg_child.setData(0, Qt.UserRole, segmentation)
-            item.addChild(segmentation_item)
-
-            self.info_label.setText(f"Expanded voxel spacing: {voxel_spacing.voxel_size}")
-
-        # Remove global loading indicator
-        operation_id = f"expand_voxel_spacing_{voxel_spacing.voxel_size}"
-        self._remove_operation(operation_id)
-
-    def handle_item_click(self, item, column):
-        data = item.data(0, Qt.UserRole)
-        if isinstance(data, copick.models.CopickRun):
-            self.info_label.setText(f"Run: {data.name}")
-            self.selected_run = data
-        elif isinstance(data, copick.models.CopickVoxelSpacing):
-            self.info_label.setText(f"Voxel Spacing: {data.voxel_size}")
-            self.lazy_load_voxel_spacing(item, data)
-        elif isinstance(data, copick.models.CopickTomogram):
-            self.load_tomogram_async(data, item)
-        elif isinstance(data, copick.models.CopickSegmentation):
-            self.load_segmentation_async(data, item)
-        elif isinstance(data, copick.models.CopickPicks):
-            parent_run = self.get_parent_run(item)
-            self.load_picks(data, parent_run)
-
-    def get_parent_run(self, item):
-        while item:
-            data = item.data(0, Qt.UserRole)
-            if isinstance(data, copick.models.CopickRun):
-                return data
-            item = item.parent()
-        return None
-
-    def lazy_load_voxel_spacing(self, item, voxel_spacing):
-        if not item.childCount():
-            self.expand_voxel_spacing_async(item, voxel_spacing)
-
-    def load_tomogram_async(self, tomogram, item):
-        """
-        Load a tomogram asynchronously with loading indicator using napari's threading system.
-        """
-
-        # Check if already loading
-        if tomogram in self.loading_workers:
-            self.logger.warning(f"Tomogram {tomogram.tomo_type} already loading, skipping")
-            return
-
-        # Add loading indicators
-        if item is not None:
-            # Add tree-specific loading indicator only if we have a tree item
-            self.add_loading_indicator(item)
-            self.loading_items[tomogram] = item
-        else:
-            # For cases where no tree item is available (e.g., info widget clicks)
-            self.loading_items[tomogram] = None
-
-        # Add global loading indicator (always show this)
-        operation_id = f"load_tomogram_{tomogram.tomo_type}_{id(tomogram)}"
-        self._add_operation(operation_id, f"Loading tomogram: {tomogram.tomo_type}...")
-
-        # Get selected resolution level
-        resolution_level = self.resolution_combo.currentIndex()
-
-        # Create worker using napari's threading system
-        worker = load_tomogram_worker(tomogram, resolution_level)
-
-        # Connect signals
-        worker.yielded.connect(lambda msg: self.on_progress(msg, tomogram, "tomogram"))
-        worker.returned.connect(lambda result: self.on_tomogram_loaded(result))
-        worker.errored.connect(lambda e: self.on_error(str(e), tomogram, "tomogram"))
-        worker.finished.connect(lambda: self.cleanup_worker(tomogram))
-
-        # Start the worker
-        worker.start()
-
-        self.loading_workers[tomogram] = worker
-        self.info_label.setText(f"Loading tomogram: {tomogram.tomo_type}...")
-
-    def add_loading_indicator(self, item):
-        """
-        Add a loading indicator to the tree item while preserving original text.
-        """
-        # Store original text
-        original_text = item.text(0)
-        item.setData(0, Qt.UserRole + 1, original_text)  # Store in custom role
-
-        # Create a widget with text + progress bar
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(2, 0, 2, 0)
-
-        # Original text label
-        text_label = QLabel(original_text)
-        layout.addWidget(text_label)
-
-        # Small progress bar
-        progress_bar = QProgressBar()
-        progress_bar.setRange(0, 0)  # Indeterminate progress
-        progress_bar.setMaximumHeight(12)
-        progress_bar.setMaximumWidth(60)
-        layout.addWidget(progress_bar)
-
-        layout.addStretch()
-
-        # Set the widget on the tree item
-        self.tree_view.setItemWidget(item, 0, widget)
-
-    def remove_loading_indicator(self, item):
-        """
-        Remove the loading indicator from the tree item and restore original text.
-        """
-        self.tree_view.setItemWidget(item, 0, None)
-
-        # Restore original text if stored
-        original_text = item.data(0, Qt.UserRole + 1)
-        if original_text:
-            item.setText(0, original_text)
-            item.setData(0, Qt.UserRole + 1, None)  # Clear stored text
-
-    def load_segmentation_async(self, segmentation, item):
-        """
-        Load a segmentation asynchronously with loading indicator using napari's threading system.
-        """
-
-        # Check if already loading
-        if segmentation in self.loading_workers:
-            self.logger.warning(f"Segmentation {segmentation.name} already loading, skipping")
-            return
-
-        # Add loading indicator
-        self.add_loading_indicator(item)
-        self.loading_items[segmentation] = item
-
-        # Add global loading indicator
-        operation_id = f"load_segmentation_{segmentation.name}_{id(segmentation)}"
-        self._add_operation(operation_id, f"Loading segmentation: {segmentation.name}...")
-
-        # Get selected resolution level
-        resolution_level = self.resolution_combo.currentIndex()
-
-        # Create worker using napari's threading system
-        worker = load_segmentation_worker(segmentation, resolution_level)
-
-        # Connect signals
-        worker.yielded.connect(lambda msg: self.on_progress(msg, segmentation, "segmentation"))
-        worker.returned.connect(lambda result: self.on_segmentation_loaded(result))
-        worker.errored.connect(lambda e: self.on_error(str(e), segmentation, "segmentation"))
-        worker.finished.connect(lambda: self.cleanup_worker(segmentation))
-
-        # Start the worker
-        worker.start()
-
-        self.loading_workers[segmentation] = worker
-        self.info_label.setText(f"Loading segmentation: {segmentation.name}...")
-
-    def on_progress(self, message, data_object, data_type):
-        """
-        Handle progress updates from workers.
-        """
-        pass
-        self.info_label.setText(f"{message}")
-
-    def on_tomogram_loaded(self, result):
-        """
-        Handle successful tomogram loading.
-        """
-        tomogram = result["tomogram"]
-        loaded_data = result["data"]
-        voxel_size = result["voxel_size"]
-        name = result["name"]
-        resolution_level = result["resolution_level"]
-
-        # Remove loading indicator (only for tree items)
-        if tomogram in self.loading_items:
-            item = self.loading_items[tomogram]
-            if item is not None:
-                self.remove_loading_indicator(item)
-
-        # Remove global loading indicator
-        operation_id = f"load_tomogram_{tomogram.tomo_type}_{id(tomogram)}"
-        self._remove_operation(operation_id)
-
-        # Add pre-loaded image to the viewer (should be fast!)
-        try:
-            layer = self.viewer.add_image(
-                loaded_data,
-                scale=voxel_size,
-                name=name,
-            )
-            layer.reset_contrast_limits()
-            self.info_label.setText(f"Loaded Tomogram: {tomogram.tomo_type} (Resolution Level {resolution_level})")
-        except Exception as e:
-            self.logger.exception(f"Error adding image to viewer: {str(e)}")
-            self.info_label.setText(f"Error displaying tomogram: {str(e)}")
-
-    def on_segmentation_loaded(self, result):
-        """
-        Handle successful segmentation loading.
-        """
-        segmentation = result["segmentation"]
-        loaded_data = result["data"]
-        voxel_size = result["voxel_size"]
-        name = result["name"]
-        resolution_level = result["resolution_level"]
-
-        # Remove loading indicator
-        if segmentation in self.loading_items:
-            item = self.loading_items[segmentation]
-            self.remove_loading_indicator(item)
-
-        # Remove global loading indicator
-        operation_id = f"load_segmentation_{segmentation.name}_{id(segmentation)}"
-        self._remove_operation(operation_id)
-
-        # Add pre-loaded segmentation to the viewer (should be fast!)
-        try:
-            # Create a color map based on copick colors
-            if segmentation.is_multilabel:
-                # For multilabel segmentations, use full colormap
-                colormap = self.get_copick_colormap()
-                painting_labels = [obj.label for obj in self.root.pickable_objects]
-                class_labels_mapping = {obj.label: obj.name for obj in self.root.pickable_objects}
-            else:
-                # For single label segmentations, find the matching pickable object
-                matching_obj = None
-                for obj in self.root.pickable_objects:
-                    if obj.name == segmentation.name:
-                        matching_obj = obj
-                        break
-
-                if matching_obj:
-                    # Create a simple colormap: 0 = background (black), 1 = object color
-                    colormap = {
-                        0: np.array([0, 0, 0, 0]),  # Transparent background
-                        1: np.array(matching_obj.color) / 255.0,  # Object color
-                    }
-                    painting_labels = [1]  # Only allow painting with label 1
-                    class_labels_mapping = {1: matching_obj.name}
-                else:
-                    # Fallback to default if no matching object found
-                    colormap = {0: np.array([0, 0, 0, 0]), 1: np.array([1, 1, 1, 1])}
-                    painting_labels = [1]
-                    class_labels_mapping = {1: segmentation.name}
-
-            painting_layer = self.viewer.add_labels(loaded_data, name=name, scale=voxel_size)
-            painting_layer.colormap = DirectLabelColormap(color_dict=colormap)
-            painting_layer.painting_labels = painting_labels
-            self.class_labels_mapping = class_labels_mapping
-
-            self.info_label.setText(
-                f"Loaded Segmentation: {segmentation.name} (Resolution Level {resolution_level})",
-            )
-        except Exception as e:
-            self.logger.exception(f"Error adding segmentation to viewer: {str(e)}")
-            self.info_label.setText(f"Error displaying segmentation: {str(e)}")
-
-    def on_error(self, error_msg, data_object, data_type):
-        """
-        Handle errors for loading and expansion operations.
-        """
-        if data_type == "tomogram":
-            self.logger.exception(f"Tomogram loading error for {data_object.tomo_type}: {error_msg}")
-        elif data_type == "segmentation":
-            self.logger.exception(f"Segmentation loading error for {data_object.name}: {error_msg}")
-        elif data_type == "run":
-            self.logger.exception(f"Run expansion error for {data_object.name}: {error_msg}")
-        elif data_type == "voxel_spacing":
-            self.logger.exception(f"Voxel spacing expansion error for {data_object.voxel_size}: {error_msg}")
-
-        # Remove global loading indicator for errors
-        if data_type == "tomogram":
-            operation_id = f"load_tomogram_{data_object.tomo_type}_{id(data_object)}"
-            self._remove_operation(operation_id)
-        elif data_type == "segmentation":
-            operation_id = f"load_segmentation_{data_object.name}_{id(data_object)}"
-            self._remove_operation(operation_id)
-        elif data_type == "run":
-            operation_id = f"expand_run_{data_object.name}"
-            self._remove_operation(operation_id)
-        elif data_type == "voxel_spacing":
-            operation_id = f"expand_voxel_spacing_{data_object.voxel_size}"
-            self._remove_operation(operation_id)
-
-        # Remove loading indicator and clean up workers properly
-        if data_object in self.loading_items:
-            item = self.loading_items[data_object]
-            if item is not None:
-                self.remove_loading_indicator(item)
-            # Clean up loading worker
-            self.cleanup_worker(data_object)
-        elif data_object in self.expansion_items:
-            item = self.expansion_items[data_object]
-            self.remove_loading_indicator(item)
-            # Clean up expansion worker
-            self.cleanup_expansion_worker(data_object)
-
-        self.info_label.setText(f"Error: {error_msg}")
-
-    def cleanup_worker(self, data_object):
-        """
-        Clean up loading worker and associated data.
-        """
-        if data_object in self.loading_workers:
-            del self.loading_workers[data_object]
-
-        if data_object in self.loading_items:
-            del self.loading_items[data_object]
-
-    def cleanup_expansion_worker(self, data_object):
-        """
-        Clean up expansion worker and associated data.
-        """
-        if data_object in self.expansion_workers:
-            del self.expansion_workers[data_object]
-
-        if data_object in self.expansion_items:
-            del self.expansion_items[data_object]
-
-    def get_copick_colormap(self, pickable_objects=None):
+    def get_copick_colormap(
+        self,
+        pickable_objects: Optional[List[copick.models.PickableObject]] = None,
+    ) -> Dict[Union[int, None], np.ndarray]:
         if not pickable_objects:
             pickable_objects = self.root.pickable_objects
 
@@ -858,194 +289,12 @@ class CopickPlugin(QWidget):
 
         return colormap
 
-    def load_picks(self, pick_set, parent_run):
-        if parent_run is not None:
-            if pick_set:
-                if pick_set.points:
-                    points = [(p.location.z, p.location.y, p.location.x) for p in pick_set.points]
-
-                    # Find the matching pickable object to get the correct color
-                    pickable_object = None
-                    for obj in self.root.pickable_objects:
-                        if obj.name == pick_set.pickable_object_name:
-                            pickable_object = obj
-                            break
-
-                    if pickable_object:  # noqa: SIM108
-                        color = pickable_object.color
-                    else:
-                        color = (255, 255, 255, 255)  # Default to white if no matching object found
-
-                    colors = np.tile(
-                        np.array(
-                            [
-                                color[0] / 255.0,
-                                color[1] / 255.0,
-                                color[2] / 255.0,
-                                color[3] / 255.0,
-                            ],
-                        ),
-                        (len(points), 1),
-                    )  # Create an array with the correct shape
-                    # TODO hardcoded default point size
-                    point_size = pickable_object.radius if pickable_object.radius else 50  # Default point size
-                    points = self.viewer.add_points(
-                        points,
-                        name=f"Picks: {pick_set.pickable_object_name}",
-                        size=point_size,
-                        face_color=colors,
-                        out_of_slice_display=True,
-                    )
-                    points.size = [200] * len(points.size)  # Set a default size for all points
-                    self.info_label.setText(f"Loaded Picks: {pick_set.pickable_object_name}")
-                else:
-                    self.info_label.setText(f"No points found for Picks: {pick_set.pickable_object_name}")
-            else:
-                self.info_label.setText(f"No pick set found for Picks: {pick_set.pickable_object_name}")
-        else:
-            self.info_label.setText("No parent run found")
-
-    def get_color(self, pick):
-        for obj in self.root.pickable_objects:
-            if obj.name == pick.object_name:
-                return obj.color
-        return "white"
-
-    def get_run(self, name):
+    def get_run(self, name: str) -> Optional[copick.models.CopickRun]:
         return self.root.get_run(name)
 
-    def open_context_menu(self, position):
-        item = self.tree_view.itemAt(position)
-        if not item:
-            return
-
-        if self.is_segmentations_or_picks_item(item):
-            context_menu = QMenu(self.tree_view)
-            if item.text(0) == "Segmentations":
-                run_name = item.parent().parent().text(0)
-                run = self.root.get_run(run_name)
-                self.show_segmentation_widget(run)
-            elif item.text(0) == "Picks":
-                run_name = item.parent().text(0)
-                run = self.root.get_run(run_name)
-                self.show_picks_widget(run)
-            context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
-
-    def is_segmentations_or_picks_item(self, item):
-        if item.text(0) == "Segmentations" or item.text(0) == "Picks":  # noqa: SIM103
-            return True
-        return False
-
-    def show_segmentation_widget(self, run):
-        widget = QWidget()
-        widget.setWindowTitle("Create New Segmentation")
-
-        layout = QFormLayout(widget)
-        name_input = QLineEdit(widget)
-        name_input.setText("segmentation")
-        layout.addRow("Name:", name_input)
-
-        session_input = QSpinBox(widget)
-        session_input.setValue(0)
-        layout.addRow("Session ID:", session_input)
-
-        user_input = QLineEdit(widget)
-        user_input.setText("napariCopick")
-        layout.addRow("User ID:", user_input)
-
-        voxel_size_input = QComboBox(widget)
-        for voxel_spacing in run.voxel_spacings:
-            voxel_size_input.addItem(str(voxel_spacing.voxel_size))
-        layout.addRow("Voxel Size:", voxel_size_input)
-
-        create_button = QPushButton("Create", widget)
-        create_button.clicked.connect(
-            lambda: self.create_segmentation(
-                widget,
-                run,
-                name_input.text(),
-                session_input.value(),
-                user_input.text(),
-                float(voxel_size_input.currentText()),
-            ),
-        )
-        layout.addWidget(create_button)
-
-        self.viewer.window.add_dock_widget(widget, area="right")
-
-    def show_picks_widget(self, run):
-        widget = QWidget()
-        widget.setWindowTitle("Create New Picks")
-
-        layout = QFormLayout(widget)
-        object_name_input = QComboBox(widget)
-        for obj in self.root.pickable_objects:
-            object_name_input.addItem(obj.name)
-        layout.addRow("Object Name:", object_name_input)
-
-        session_input = QSpinBox(widget)
-        session_input.setValue(0)
-        layout.addRow("Session ID:", session_input)
-
-        user_input = QLineEdit(widget)
-        user_input.setText("napariCopick")
-        layout.addRow("User ID:", user_input)
-
-        create_button = QPushButton("Create", widget)
-        create_button.clicked.connect(
-            lambda: self.create_picks(
-                widget,
-                run,
-                object_name_input.currentText(),
-                session_input.value(),
-                user_input.text(),
-            ),
-        )
-        layout.addWidget(create_button)
-
-        self.viewer.window.add_dock_widget(widget, area="right")
-
-    def create_segmentation(self, widget, run, name, session_id, user_id, voxel_size):
-        seg = run.new_segmentation(
-            voxel_size=voxel_size,
-            name=name,
-            session_id=str(session_id),
-            is_multilabel=True,
-            user_id=user_id,
-        )
-
-        # Get tomogram shape from first available tomogram
-        first_tomogram = run.voxel_spacings[0].tomograms[0]
-        zarr_group = zarr.open(first_tomogram.zarr(), "r")
-        # Get shape from the highest resolution level
-        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]  # noqa: SIM118
-        scale_levels.sort(key=int)
-        tomo_array = zarr_group[scale_levels[0]]
-        shape = tomo_array.shape
-
-        dtype = np.int32
-
-        # Create an empty Zarr array for the segmentation
-        zarr_file = zarr.open(seg.zarr(), mode="w")
-        zarr_file.create_dataset(
-            "data",
-            shape=shape,
-            dtype=dtype,
-            chunks=(128, 128, 128),
-            fill_value=0,
-        )
-
-        self.populate_tree()
-        widget.close()
-
-    def create_picks(self, widget, run, object_name, session_id, user_id):
-        run.new_picks(
-            object_name=object_name,
-            session_id=str(session_id),
-            user_id=user_id,
-        )
-        self.populate_tree()
-        widget.close()
+    def open_context_menu(self, position: Any) -> None:
+        # Context menu functionality has been simplified - most creation is now handled through save dialogs
+        pass
 
     def _update_gallery(self) -> None:
         """Update the gallery widget with current copick root."""
@@ -1069,7 +318,7 @@ class CopickPlugin(QWidget):
                 self.tab_widget.setCurrentIndex(i)
                 return
 
-    def _on_info_requested(self, run) -> None:
+    def _on_info_requested(self, run: copick.models.CopickRun) -> None:
         """Handle info request from gallery widget."""
         try:
             # Switch to info view immediately for snappy response

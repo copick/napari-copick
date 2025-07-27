@@ -721,7 +721,7 @@ wheels = [
 
 [[package]]
 name = "copick"
-version = "1.11.0"
+version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -743,7 +743,6 @@ dependencies = [
     { name = "s3fs" },
     { name = "scikit-image", version = "0.24.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "scikit-image", version = "0.25.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "sshfs" },
     { name = "textual" },
     { name = "tqdm" },
     { name = "trimesh" },
@@ -751,14 +750,15 @@ dependencies = [
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "zarr", version = "2.18.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0e/8b/709bed90937d4df3d332fbd6dffe6fdc0ef8bfb86cf7fb245429d5d8216d/copick-1.11.0.tar.gz", hash = "sha256:0de29689848bc561040120cb16efcb5daf3ecc28f977ee1c32cc3c3fada6daac", size = 5464105, upload-time = "2025-07-22T21:05:26.602Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/ab/76a055cc701677c5119a49e0f2eeb49fe3b0f9b2b990da537562387aaf9d/copick-1.6.1.tar.gz", hash = "sha256:4d11242e2c95318342376974f4f8cf66dc6613b8983cea559e405ec7c85ed727", size = 5427609, upload-time = "2025-07-08T21:21:28.304Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/a8/e137640162f77682b9783a4ed78505af007b2082660c560aef05b0d486b9/copick-1.11.0-py3-none-any.whl", hash = "sha256:81fcdca86b48b0f4a868196ceda6bab8aa958ba4ac3d9de6f45049451a2d214b", size = 76151, upload-time = "2025-07-22T21:05:24.91Z" },
+    { url = "https://files.pythonhosted.org/packages/64/70/1f84bfb3881fae8d4bf9c459e437c4eddf2216de1833705603eedabde5a7/copick-1.6.1-py3-none-any.whl", hash = "sha256:b6b7d6f823bbd02e669919708eed1307a2af8d0307a5c6310518c48e1b171439", size = 60778, upload-time = "2025-07-08T21:21:26.489Z" },
 ]
 
 [package.optional-dependencies]
 all = [
     { name = "smbprotocol" },
+    { name = "sshfs" },
 ]
 
 [[package]]

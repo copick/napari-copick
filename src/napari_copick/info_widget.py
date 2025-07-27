@@ -6,7 +6,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QWidget
 
 try:
-    from napari.qt.threading import create_worker, thread_worker  # noqa: F401
+    from napari.qt.threading import create_worker
 
     NAPARI_AVAILABLE = True
 except ImportError:
@@ -18,7 +18,6 @@ try:
         AbstractImageInterface,
         AbstractInfoSessionInterface,
         AbstractThemeInterface,
-        AbstractWorkerInterface,  # noqa: F401
     )
     from copick_shared_ui.platform.napari_integration import NapariWorkerInterface
     from copick_shared_ui.theming.colors import get_color_scheme
@@ -48,7 +47,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
     class NapariInfoSessionInterface(AbstractInfoSessionInterface):
         """napari-specific session interface for info widget."""
 
-        def __init__(self, viewer, plugin_widget):
+        def __init__(self, viewer: Any, plugin_widget: Any) -> None:
             self.viewer = viewer
             self.plugin_widget = plugin_widget
 
@@ -60,7 +59,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
             # Find the tomogram in the tree and load it
             # For now, just use the plugin's async loading mechanism
             # This could be enhanced to find the exact tree item
-            self.plugin_widget.load_tomogram_async(tomogram, None)
+            self.plugin_widget.data_loader.load_tomogram_async(tomogram, None)
 
         def navigate_to_gallery(self) -> None:
             """Navigate back to gallery view."""
@@ -75,7 +74,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
     class NapariThemeInterface(AbstractThemeInterface):
         """napari-specific theme interface."""
 
-        def __init__(self, viewer):
+        def __init__(self, viewer: Any) -> None:
             self.viewer = viewer
             self._theme_change_callbacks: List[callable] = []
 
@@ -148,7 +147,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
     class NapariCopickInfoWidget(CopickInfoWidget):
         """napari-specific copick info widget."""
 
-        def __init__(self, viewer, plugin_widget, parent: Optional[QWidget] = None):
+        def __init__(self, viewer: Any, plugin_widget: Any, parent: Optional[QWidget] = None) -> None:
             self.viewer = viewer
             self.plugin_widget = plugin_widget
 
@@ -172,7 +171,7 @@ if NAPARI_AVAILABLE and SHARED_UI_AVAILABLE:
         def _on_tomogram_clicked(self, tomogram: "CopickTomogram") -> None:
             """Handle tomogram click by loading it in napari."""
             # Use the plugin's loading mechanism
-            self.plugin_widget.load_tomogram_async(tomogram, None)
+            self.plugin_widget.data_loader.load_tomogram_async(tomogram, None)
 
 else:
     # Fallback if dependencies are not available
@@ -181,7 +180,7 @@ else:
     class NapariCopickInfoWidget(QWidget):
         """Fallback info widget when dependencies are not available."""
 
-        def __init__(self, viewer, plugin_widget, parent: Optional[QWidget] = None):
+        def __init__(self, viewer: Any, plugin_widget: Any, parent: Optional[QWidget] = None) -> None:
             super().__init__(parent)
             from qtpy.QtWidgets import QLabel, QVBoxLayout
 
@@ -192,10 +191,6 @@ else:
             layout.addWidget(label)
             self.setLayout(layout)
 
-        def set_run(self, run) -> None:
-            """Dummy method for compatibility."""
-            pass
-
-        def delete(self) -> None:
+        def set_run(self, run: Any) -> None:
             """Dummy method for compatibility."""
             pass
