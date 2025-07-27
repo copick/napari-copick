@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/copick/napari-copick/compare/napari-copick-v1.0.0...napari-copick-v1.0.1) (2025-07-27)
+
+
+### 🐞 Bug Fixes
+
+* fix screenshot link for pypi ([cadb6fb](https://github.com/copick/napari-copick/commit/cadb6fba40e3b904e3a52508a15283beff158aa9))
+
 ## [1.0.0](https://github.com/copick/napari-copick/compare/napari-copick-v0.0.1...napari-copick-v1.0.0) (2025-07-27)
 
 
