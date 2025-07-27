@@ -41,6 +41,7 @@ dependencies = [
 ]
 authors = [
     { name = "Kyle Harrington", email = "czi@kyleharrington.com" },
+    { name = "Utz H. Ermel", email = "utz.ermel@czii.org" },
 ]
 description = "A plugin for collaborative annotation in cryoET using copick"
 readme = "README.md"
