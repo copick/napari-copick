@@ -1,5 +1,3 @@
-import sys
-
 import copick
 import dask.array as da
 import napari
@@ -366,7 +364,7 @@ class CopickPlugin(QWidget):
             context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
 
     def is_segmentations_or_picks_item(self, item):
-        if item.text(0) == "Segmentations" or item.text(0) == "Picks":
+        if item.text(0) == "Segmentations" or item.text(0) == "Picks":  # noqa: SIM103
             return True
         return False
 
@@ -474,41 +472,3 @@ class CopickPlugin(QWidget):
         )
         self.populate_tree()
         widget.close()
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Copick Plugin")
-    parser.add_argument("--config_path", type=str, help="Path to the copick config file", default=None)
-    parser.add_argument(
-        "--dataset_ids",
-        type=int,
-        nargs="+",
-        help="Dataset IDs to include in the project (space separated)",
-        default=None,
-    )
-    parser.add_argument(
-        "--overlay_root",
-        type=str,
-        default="/tmp/overlay_root",
-        help="Root URL for the overlay storage when using dataset IDs",
-    )
-    args = parser.parse_args()
-
-    if not args.config_path and not args.dataset_ids:
-        print("Either --config_path or --dataset_ids must be provided")
-        sys.exit(1)
-    elif args.config_path and args.dataset_ids:
-        print("Only one of --config_path or --dataset_ids should be provided, not both")
-        sys.exit(1)
-
-    viewer = napari.Viewer()
-    copick_plugin = CopickPlugin(
-        viewer,
-        config_path=args.config_path,
-        dataset_ids=args.dataset_ids,
-        overlay_root=args.overlay_root,
-    )
-    viewer.window.add_dock_widget(copick_plugin, area="right")
-    napari.run()
