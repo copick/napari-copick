@@ -1,32 +1,29 @@
-import dask.array as da
-import numpy as np
-import copick
-import zarr
-import napari
 import sys
-from typing import List, Optional, Dict, Any, Tuple
+
+import copick
+import dask.array as da
+import napari
+import numpy as np
+import zarr
+from napari.utils import DirectLabelColormap
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
-    QWidget,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
     QPushButton,
+    QSpinBox,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
-    QLabel,
-    QFileDialog,
-    QLineEdit,
-    QMenu,
-    QAction,
-    QFormLayout,
-    QComboBox,
-    QSpinBox,
-    QHBoxLayout,
-    QDialog,
-    QDialogButtonBox,
-    QGridLayout,
-    QCheckBox,
+    QWidget,
 )
-from qtpy.QtCore import Qt, QPoint
-from napari.utils import DirectLabelColormap
 
 
 class DatasetIdDialog(QDialog):
@@ -34,35 +31,33 @@ class DatasetIdDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Load from Dataset IDs")
         self.setMinimumWidth(400)
-        
+
         layout = QVBoxLayout()
-        
+
         # Dataset IDs input
         form_layout = QFormLayout()
         self.dataset_ids_input = QLineEdit()
         self.dataset_ids_input.setPlaceholderText("10000, 10001, ...")
         form_layout.addRow("Dataset IDs (comma separated):", self.dataset_ids_input)
-        
+
         # Overlay root input
         self.overlay_root_input = QLineEdit()
         self.overlay_root_input.setText("/tmp/overlay_root")
         form_layout.addRow("Overlay Root:", self.overlay_root_input)
-        
+
         layout.addLayout(form_layout)
-        
+
         # Buttons
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        )
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        
+
         self.setLayout(layout)
-    
+
     def get_values(self):
         dataset_ids_text = self.dataset_ids_input.text()
-        dataset_ids = [int(id.strip()) for id in dataset_ids_text.split(',') if id.strip()]
+        dataset_ids = [int(id.strip()) for id in dataset_ids_text.split(",") if id.strip()]
         overlay_root = self.overlay_root_input.text()
         return dataset_ids, overlay_root
 
@@ -80,7 +75,7 @@ class CopickPlugin(QWidget):
         self.current_layer = None
         self.session_id = "17"
         self.setup_ui()
-        
+
         if config_path:
             self.load_config(config_path=config_path)
         elif dataset_ids:
@@ -91,17 +86,17 @@ class CopickPlugin(QWidget):
 
         # Config loading options
         load_options_layout = QHBoxLayout()
-        
+
         # Config file button
         self.load_config_button = QPushButton("Load Config File")
         self.load_config_button.clicked.connect(self.open_file_dialog)
         load_options_layout.addWidget(self.load_config_button)
-        
+
         # Dataset IDs button
         self.load_dataset_button = QPushButton("Load from Dataset IDs")
         self.load_dataset_button.clicked.connect(self.open_dataset_dialog)
         load_options_layout.addWidget(self.load_dataset_button)
-        
+
         layout.addLayout(load_options_layout)
 
         # Hierarchical tree view
@@ -110,9 +105,7 @@ class CopickPlugin(QWidget):
         self.tree_view.itemExpanded.connect(self.handle_item_expand)
         self.tree_view.itemClicked.connect(self.handle_item_click)
         self.tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tree_view.customContextMenuRequested.connect(
-            self.open_context_menu
-        )
+        self.tree_view.customContextMenuRequested.connect(self.open_context_menu)
         layout.addWidget(self.tree_view)
 
         # Info label
@@ -122,9 +115,7 @@ class CopickPlugin(QWidget):
         self.setLayout(layout)
 
     def open_file_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Open Config", "", "JSON Files (*.json)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "Open Config", "", "JSON Files (*.json)")
         if path:
             self.load_config(config_path=path)
 
@@ -168,13 +159,9 @@ class CopickPlugin(QWidget):
     def expand_run(self, item, run):
         if not item.childCount():
             for voxel_spacing in run.voxel_spacings:
-                spacing_item = QTreeWidgetItem(
-                    item, [f"Voxel Spacing: {voxel_spacing.meta.voxel_size}"]
-                )
+                spacing_item = QTreeWidgetItem(item, [f"Voxel Spacing: {voxel_spacing.meta.voxel_size}"])
                 spacing_item.setData(0, Qt.UserRole, voxel_spacing)
-                spacing_item.setChildIndicatorPolicy(
-                    QTreeWidgetItem.ShowIndicator
-                )
+                spacing_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
 
             # Add picks nested by user_id, session_id, and pickable_object_name
             picks = run.picks
@@ -190,13 +177,9 @@ class CopickPlugin(QWidget):
             for user_id, sessions in user_dict.items():
                 user_item = QTreeWidgetItem(picks_item, [f"User: {user_id}"])
                 for session_id, picks in sessions.items():
-                    session_item = QTreeWidgetItem(
-                        user_item, [f"Session: {session_id}"]
-                    )
+                    session_item = QTreeWidgetItem(user_item, [f"Session: {session_id}"])
                     for pick in picks:
-                        pick_child = QTreeWidgetItem(
-                            session_item, [pick.meta.pickable_object_name]
-                        )
+                        pick_child = QTreeWidgetItem(session_item, [pick.meta.pickable_object_name])
                         pick_child.setData(0, Qt.UserRole, pick)
             item.addChild(picks_item)
 
@@ -204,20 +187,14 @@ class CopickPlugin(QWidget):
         if not item.childCount():
             tomogram_item = QTreeWidgetItem(item, ["Tomograms"])
             for tomogram in voxel_spacing.tomograms:
-                tomo_child = QTreeWidgetItem(
-                    tomogram_item, [tomogram.meta.tomo_type]
-                )
+                tomo_child = QTreeWidgetItem(tomogram_item, [tomogram.meta.tomo_type])
                 tomo_child.setData(0, Qt.UserRole, tomogram)
             item.addChild(tomogram_item)
 
             segmentation_item = QTreeWidgetItem(item, ["Segmentations"])
-            segmentations = voxel_spacing.run.get_segmentations(
-                voxel_size=voxel_spacing.meta.voxel_size
-            )
+            segmentations = voxel_spacing.run.get_segmentations(voxel_size=voxel_spacing.meta.voxel_size)
             for segmentation in segmentations:
-                seg_child = QTreeWidgetItem(
-                    segmentation_item, [segmentation.meta.name]
-                )
+                seg_child = QTreeWidgetItem(segmentation_item, [segmentation.meta.name])
                 seg_child.setData(0, Qt.UserRole, segmentation)
             item.addChild(segmentation_item)
 
@@ -258,7 +235,7 @@ class CopickPlugin(QWidget):
         zarr_group = zarr.open(zarr_path, "r")
 
         # Determine the number of scale levels
-        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]
+        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]  # noqa: SIM118
         scale_levels.sort(key=int)
 
         if not scale_levels:
@@ -272,10 +249,10 @@ class CopickPlugin(QWidget):
         # Get the highest resolution data
         base_array = zarr_group[scale_levels[0]]
         base_shape = base_array.shape
-        
+
         # Calculate voxel size from metadata or fallback to uniform scaling
         voxel_size = [tomogram.voxel_spacing.meta.voxel_size] * 3
-        
+
         # Collect all scale levels and calculate scale factors
         scales = []
         for level in scale_levels:
@@ -284,15 +261,13 @@ class CopickPlugin(QWidget):
             dask_array = da.from_array(array, chunks=array.chunks)
             all_arrays.append(array)
             all_data.append(dask_array)
-            
+
             # Calculate scale relative to the base level
-            scale_factor = [
-                bs / s for bs, s in zip(base_shape, array.shape)
-            ]
+            scale_factor = [bs / s for bs, s in zip(base_shape, array.shape)]
             scales.append(scale_factor)
 
         # Add multiscale image to the viewer
-        layer = self.viewer.add_image(
+        _ = self.viewer.add_image(
             all_data,
             scale=voxel_size,
             multiscale=True,
@@ -300,42 +275,27 @@ class CopickPlugin(QWidget):
             contrast_limits=[0, 1],
         )
 
-        self.info_label.setText(
-            f"Loaded Tomogram: {tomogram.meta.tomo_type} with {len(scale_levels)} scale levels"
-        )
+        self.info_label.setText(f"Loaded Tomogram: {tomogram.meta.tomo_type} with {len(scale_levels)} scale levels")
 
     def load_segmentation(self, segmentation):
         zarr_data = zarr.open(segmentation.zarr(), "r+")
-        if "data" in zarr_data:
-            data = zarr_data["data"]
-        else:
-            data = zarr_data["0"]
+        data = zarr_data["data"] if "data" in zarr_data else zarr_data["0"]
 
         scale = [segmentation.meta.voxel_size] * 3
 
         # Create a color map based on copick colors
         colormap = self.get_copick_colormap()
-        painting_layer = self.viewer.add_labels(
-            data, name=f"Segmentation: {segmentation.meta.name}", scale=scale
-        )
+        painting_layer = self.viewer.add_labels(data, name=f"Segmentation: {segmentation.meta.name}", scale=scale)
         painting_layer.colormap = DirectLabelColormap(color_dict=colormap)
-        painting_layer.painting_labels = [
-            obj.label for obj in self.root.config.pickable_objects
-        ]
-        self.class_labels_mapping = {
-            obj.label: obj.name for obj in self.root.config.pickable_objects
-        }
+        painting_layer.painting_labels = [obj.label for obj in self.root.config.pickable_objects]
+        self.class_labels_mapping = {obj.label: obj.name for obj in self.root.config.pickable_objects}
 
-        self.info_label.setText(
-            f"Loaded Segmentation: {segmentation.meta.name}"
-        )
+        self.info_label.setText(f"Loaded Segmentation: {segmentation.meta.name}")
 
     def get_copick_colormap(self, pickable_objects=None):
         if not pickable_objects:
             pickable_objects = self.root.config.pickable_objects
-        colormap = {
-            obj.label: np.array(obj.color) / 255.0 for obj in pickable_objects
-        }
+        colormap = {obj.label: np.array(obj.color) / 255.0 for obj in pickable_objects}
         colormap[None] = np.array([1, 1, 1, 1])
         return colormap
 
@@ -343,14 +303,9 @@ class CopickPlugin(QWidget):
         if parent_run is not None:
             if pick_set:
                 if pick_set.points:
-                    points = [
-                        (p.location.z, p.location.y, p.location.x)
-                        for p in pick_set.points
-                    ]
+                    points = [(p.location.z, p.location.y, p.location.x) for p in pick_set.points]
                     color = (
-                        pick_set.color
-                        if pick_set.color
-                        else (255, 255, 255, 255)
+                        pick_set.color if pick_set.color else (255, 255, 255, 255)
                     )  # Default to white if color is not set
                     colors = np.tile(
                         np.array(
@@ -359,14 +314,12 @@ class CopickPlugin(QWidget):
                                 color[1] / 255.0,
                                 color[2] / 255.0,
                                 color[3] / 255.0,
-                            ]
+                            ],
                         ),
                         (len(points), 1),
                     )  # Create an array with the correct shape
                     pickable_object = [
-                        obj
-                        for obj in self.root.pickable_objects
-                        if obj.name == pick_set.pickable_object_name
+                        obj for obj in self.root.pickable_objects if obj.name == pick_set.pickable_object_name
                     ][0]
                     # TODO hardcoded default point size
                     point_size = pickable_object.radius if pickable_object.radius else 50
@@ -377,17 +330,11 @@ class CopickPlugin(QWidget):
                         face_color=colors,
                         out_of_slice_display=True,
                     )
-                    self.info_label.setText(
-                        f"Loaded Picks: {pick_set.meta.pickable_object_name}"
-                    )
+                    self.info_label.setText(f"Loaded Picks: {pick_set.meta.pickable_object_name}")
                 else:
-                    self.info_label.setText(
-                        f"No points found for Picks: {pick_set.meta.pickable_object_name}"
-                    )
+                    self.info_label.setText(f"No points found for Picks: {pick_set.meta.pickable_object_name}")
             else:
-                self.info_label.setText(
-                    f"No pick set found for Picks: {pick_set.meta.pickable_object_name}"
-                )
+                self.info_label.setText(f"No pick set found for Picks: {pick_set.meta.pickable_object_name}")
         else:
             self.info_label.setText("No parent run found")
 
@@ -454,7 +401,7 @@ class CopickPlugin(QWidget):
                 session_input.value(),
                 user_input.text(),
                 float(voxel_size_input.currentText()),
-            )
+            ),
         )
         layout.addWidget(create_button)
 
@@ -486,15 +433,13 @@ class CopickPlugin(QWidget):
                 object_name_input.currentText(),
                 session_input.value(),
                 user_input.text(),
-            )
+            ),
         )
         layout.addWidget(create_button)
 
         self.viewer.window.add_dock_widget(widget, area="right")
 
-    def create_segmentation(
-        self, widget, run, name, session_id, user_id, voxel_size
-    ):
+    def create_segmentation(self, widget, run, name, session_id, user_id, voxel_size):
         seg = run.new_segmentation(
             voxel_size=voxel_size,
             name=name,
@@ -503,9 +448,7 @@ class CopickPlugin(QWidget):
             user_id=user_id,
         )
 
-        tomo = zarr.open(run.voxel_spacings[0].tomograms[0].zarr(), "r")[
-            "0"
-        ]
+        tomo = zarr.open(run.voxel_spacings[0].tomograms[0].zarr(), "r")["0"]
 
         shape = tomo.shape
         dtype = np.int32
@@ -537,24 +480,19 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Copick Plugin")
-    parser.add_argument(
-        "--config_path", 
-        type=str, 
-        help="Path to the copick config file", 
-        default=None
-    )
+    parser.add_argument("--config_path", type=str, help="Path to the copick config file", default=None)
     parser.add_argument(
         "--dataset_ids",
         type=int,
         nargs="+",
         help="Dataset IDs to include in the project (space separated)",
-        default=None
+        default=None,
     )
     parser.add_argument(
         "--overlay_root",
         type=str,
         default="/tmp/overlay_root",
-        help="Root URL for the overlay storage when using dataset IDs"
+        help="Root URL for the overlay storage when using dataset IDs",
     )
     args = parser.parse_args()
 
@@ -567,10 +505,10 @@ if __name__ == "__main__":
 
     viewer = napari.Viewer()
     copick_plugin = CopickPlugin(
-        viewer, 
+        viewer,
         config_path=args.config_path,
         dataset_ids=args.dataset_ids,
-        overlay_root=args.overlay_root
+        overlay_root=args.overlay_root,
     )
     viewer.window.add_dock_widget(copick_plugin, area="right")
     napari.run()
