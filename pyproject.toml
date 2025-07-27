@@ -35,7 +35,7 @@ dependencies = [
     "pydantic>=2",
     "copick>=1.0.1",
     "napari-ome-zarr",
-    "napari>=0.5.6",
+    "napari",
     "click"
 ]
 authors = [
