@@ -9,7 +9,7 @@
 
 A plugin for collaborative annotation in cryoET using copick
 
-![interface.png](docs/assets/interface.png)
+![interface.png](https://github.com/copick/napari-copick/raw/main/docs/assets/interface.png)
 
 ----------------------------------
 
