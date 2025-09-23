@@ -116,11 +116,14 @@ class SaveManager:
         if result.get("success", False):
             message = result.get("message", "Segmentation saved successfully")
             
-            # Handle split instances vs single segmentation differently
+            # Handle different save modes
             if result.get("split_instances", False):
                 instance_count = result.get("instance_count", 0)
                 self.parent_widget.info_label.setText(f"{message} ({instance_count} instances)")
                 self.logger.info(f"Successfully saved {instance_count} split instances for '{result.get('object_name')}'")
+            elif result.get("convert_to_binary", False):
+                self.parent_widget.info_label.setText(f"{message} (converted to binary)")
+                self.logger.info(f"Successfully saved binary segmentation '{result.get('object_name')}'")
             else:
                 self.parent_widget.info_label.setText(message)
                 self.logger.info(f"Successfully saved single segmentation '{result.get('object_name')}'")

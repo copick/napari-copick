@@ -180,6 +180,7 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         user_id = save_params["user_id"]
         exist_ok = save_params.get("exist_ok", False)
         split_instances = save_params.get("split_instances", False)
+        convert_to_binary = save_params.get("convert_to_binary", False)
 
         yield f"Processing segmentation '{object_name}' for run '{run.name}'..."
 
@@ -205,7 +206,7 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         yield "Converting data to uint8 format..."
         seg_data = seg_data.astype(np.uint8)
 
-        # Handle instance splitting if requested
+        # Handle different processing modes
         if split_instances:
             yield "Splitting segmentation into binary instances..."
             from napari_copick.save_utils import split_segmentation_into_instances
@@ -245,6 +246,40 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 "split_instances": True,
                 "instance_count": len(instances),
             }
+        elif convert_to_binary:
+            yield "Converting segmentation to binary..."
+            from napari_copick.save_utils import convert_segmentation_to_binary
+            
+            # Convert to binary (all non-zero labels become 1)
+            binary_data = convert_segmentation_to_binary(seg_data)
+            
+            yield "Creating binary segmentation..."
+            
+            # Create new segmentation
+            segmentation = run.new_segmentation(
+                voxel_size=voxel_spacing.voxel_size,
+                name=object_name,
+                session_id=session_id,
+                user_id=user_id,
+                is_multilabel=False,  # Binary segmentation
+                exist_ok=exist_ok,
+            )
+            
+            yield "Saving binary segmentation to copick using from_numpy method..."
+            
+            # Save using copick's from_numpy method which follows copick conventions
+            segmentation.from_numpy(binary_data, levels=1, dtype=np.uint8)
+
+            yield f"Successfully saved binary segmentation '{object_name}' to run '{run.name}'"
+
+            return {
+                "success": True,
+                "message": f"Saved binary segmentation '{object_name}' to run '{run.name}'",
+                "segmentation": segmentation,
+                "object_name": object_name,
+                "run_name": run.name,
+                "convert_to_binary": True,
+            }
         else:
             yield "Creating single segmentation..."
             
@@ -271,7 +306,6 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 "segmentation": segmentation,
                 "object_name": object_name,
                 "run_name": run.name,
-                "split_instances": False,
             }
 
     except Exception as e:

@@ -239,3 +239,22 @@ def split_segmentation_into_instances(seg_data: np.ndarray, session_id: str) -> 
         logger.info(f"Created instance {i} for label {label} with session ID '{instance_session_id}'")
     
     return instances
+
+
+def convert_segmentation_to_binary(seg_data: np.ndarray) -> np.ndarray:
+    """Convert a multi-class segmentation to binary by setting all non-zero labels to 1.
+    
+    Args:
+        seg_data: Multi-class segmentation array
+        
+    Returns:
+        Binary segmentation array where all non-zero values are set to 1
+    """
+    binary_data = (seg_data > 0).astype(np.uint8)
+    
+    unique_labels = np.unique(seg_data)
+    non_zero_labels = unique_labels[unique_labels > 0]
+    
+    logger.info(f"Converting segmentation to binary: found {len(non_zero_labels)} non-zero labels {list(non_zero_labels)}")
+    
+    return binary_data
