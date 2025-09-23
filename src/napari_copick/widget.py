@@ -61,6 +61,7 @@ class CopickPlugin(QWidget):
             self.viewer = napari.Viewer()
 
         self.root: Optional[copick.models.CopickRoot] = None
+        self.config_path: Optional[str] = None  # Store config file path for saving
         self.selected_run: Optional[copick.models.CopickRun] = None
         self.current_layer: Optional[Any] = None
         self.session_id: str = "17"
