@@ -127,12 +127,12 @@ class SaveLayerDialog(QDialog):
             self.split_instances_checkbox = QCheckBox("Split instances (create binary volumes for each label)")
             self.split_instances_checkbox.setChecked(False)
             form_layout.addRow("", self.split_instances_checkbox)
-            
+
             # Convert to binary checkbox (only for segmentations)
             self.convert_to_binary_checkbox = QCheckBox("Convert to binary (set all non-zero labels to 1)")
             self.convert_to_binary_checkbox.setChecked(False)
             form_layout.addRow("", self.convert_to_binary_checkbox)
-            
+
             # Make the checkboxes mutually exclusive
             self.split_instances_checkbox.toggled.connect(self._on_split_instances_toggled)
             self.convert_to_binary_checkbox.toggled.connect(self._on_convert_to_binary_toggled)
@@ -216,12 +216,12 @@ class SaveLayerDialog(QDialog):
             base_values["convert_to_binary"] = self.convert_to_binary_checkbox.isChecked()
 
         return base_values
-    
+
     def _on_split_instances_toggled(self, checked: bool) -> None:
         """Handle split instances checkbox toggle - disable convert to binary when checked."""
         if checked:
             self.convert_to_binary_checkbox.setChecked(False)
-    
+
     def _on_convert_to_binary_toggled(self, checked: bool) -> None:
         """Handle convert to binary checkbox toggle - disable split instances when checked."""
         if checked:
