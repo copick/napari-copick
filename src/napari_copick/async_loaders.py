@@ -210,17 +210,17 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         if split_instances:
             yield "Splitting segmentation into binary instances..."
             from napari_copick.save_utils import split_segmentation_into_instances
-            
+
             instances = split_segmentation_into_instances(seg_data, session_id)
-            
+
             if not instances:
                 raise ValueError("No valid instances found in segmentation data")
-            
+
             saved_segmentations = []
-            
+
             for i, instance in enumerate(instances):
                 yield f"Saving instance {i+1}/{len(instances)} (label {instance['label']}, session '{instance['session_id']}')"
-                
+
                 # Create new segmentation for this instance
                 segmentation = run.new_segmentation(
                     voxel_size=voxel_spacing.voxel_size,
@@ -230,13 +230,13 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                     is_multilabel=False,  # Binary segmentation
                     exist_ok=exist_ok,
                 )
-                
+
                 # Save the binary instance data
                 segmentation.from_numpy(instance["data"], levels=1, dtype=np.uint8)
                 saved_segmentations.append(segmentation)
-            
+
             yield f"Successfully saved {len(instances)} binary instances for '{object_name}' to run '{run.name}'"
-            
+
             return {
                 "success": True,
                 "message": f"Saved {len(instances)} binary instances for '{object_name}' to run '{run.name}'",
@@ -249,12 +249,12 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         elif convert_to_binary:
             yield "Converting segmentation to binary..."
             from napari_copick.save_utils import convert_segmentation_to_binary
-            
+
             # Convert to binary (all non-zero labels become 1)
             binary_data = convert_segmentation_to_binary(seg_data)
-            
+
             yield "Creating binary segmentation..."
-            
+
             # Create new segmentation
             segmentation = run.new_segmentation(
                 voxel_size=voxel_spacing.voxel_size,
@@ -264,9 +264,9 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 is_multilabel=False,  # Binary segmentation
                 exist_ok=exist_ok,
             )
-            
+
             yield "Saving binary segmentation to copick using from_numpy method..."
-            
+
             # Save using copick's from_numpy method which follows copick conventions
             segmentation.from_numpy(binary_data, levels=1, dtype=np.uint8)
 
@@ -282,7 +282,7 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
             }
         else:
             yield "Creating single segmentation..."
-            
+
             # Create new segmentation
             segmentation = run.new_segmentation(
                 voxel_size=voxel_spacing.voxel_size,
@@ -292,9 +292,9 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 is_multilabel=False,  # Single label segmentation
                 exist_ok=exist_ok,
             )
-            
+
             yield "Saving segmentation to copick using from_numpy method..."
-            
+
             # Save using copick's from_numpy method which follows copick conventions
             segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
 

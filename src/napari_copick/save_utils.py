@@ -206,55 +206,59 @@ def crop_or_pad_to_shape(data: np.ndarray, target_shape: Tuple[int, int, int]) -
 
 def split_segmentation_into_instances(seg_data: np.ndarray, session_id: str) -> List[Dict[str, Any]]:
     """Split a multi-class segmentation into binary instances with unique session IDs.
-    
+
     Args:
         seg_data: Multi-class segmentation array
         session_id: Base session ID to append indices to
-        
+
     Returns:
         List of dictionaries containing instance data and session IDs
     """
     # Find unique labels (excluding background/0)
     unique_labels = np.unique(seg_data)
     unique_labels = unique_labels[unique_labels > 0]  # Exclude background (0)
-    
+
     if len(unique_labels) == 0:
         logger.warning("No non-zero labels found in segmentation")
         return []
-    
+
     instances = []
     for i, label in enumerate(unique_labels):
         # Create binary mask for this label
         binary_mask = (seg_data == label).astype(np.uint8)
-        
+
         # Generate session ID with suffix
         instance_session_id = f"{session_id}-{i}"
-        
-        instances.append({
-            "data": binary_mask,
-            "session_id": instance_session_id,
-            "label": int(label),
-        })
-        
+
+        instances.append(
+            {
+                "data": binary_mask,
+                "session_id": instance_session_id,
+                "label": int(label),
+            },
+        )
+
         logger.info(f"Created instance {i} for label {label} with session ID '{instance_session_id}'")
-    
+
     return instances
 
 
 def convert_segmentation_to_binary(seg_data: np.ndarray) -> np.ndarray:
     """Convert a multi-class segmentation to binary by setting all non-zero labels to 1.
-    
+
     Args:
         seg_data: Multi-class segmentation array
-        
+
     Returns:
         Binary segmentation array where all non-zero values are set to 1
     """
     binary_data = (seg_data > 0).astype(np.uint8)
-    
+
     unique_labels = np.unique(seg_data)
     non_zero_labels = unique_labels[unique_labels > 0]
-    
-    logger.info(f"Converting segmentation to binary: found {len(non_zero_labels)} non-zero labels {list(non_zero_labels)}")
-    
+
+    logger.info(
+        f"Converting segmentation to binary: found {len(non_zero_labels)} non-zero labels {list(non_zero_labels)}",
+    )
+
     return binary_data
