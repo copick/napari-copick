@@ -114,9 +114,19 @@ class SaveManager:
             operation_id: The operation ID for cleanup
         """
         if result.get("success", False):
-            self.parent_widget.info_label.setText(result.get("message", "Segmentation saved successfully"))
+            message = result.get("message", "Segmentation saved successfully")
+            
+            # Handle split instances vs single segmentation differently
+            if result.get("split_instances", False):
+                instance_count = result.get("instance_count", 0)
+                self.parent_widget.info_label.setText(f"{message} ({instance_count} instances)")
+                self.logger.info(f"Successfully saved {instance_count} split instances for '{result.get('object_name')}'")
+            else:
+                self.parent_widget.info_label.setText(message)
+                self.logger.info(f"Successfully saved single segmentation '{result.get('object_name')}'")
+            
             # Instead of rebuilding entire tree, just refresh the relevant voxel spacing
-            # to show the new segmentation while preserving expansion state
+            # to show the new segmentation(s) while preserving expansion state
             self.parent_widget.tree_expansion_manager.refresh_tree_after_save(result)
         else:
             self.parent_widget.info_label.setText(

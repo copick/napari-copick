@@ -1,7 +1,7 @@
 """Utility functions for saving segmentations and picks to copick."""
 
 import logging
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import copick
 import numpy as np
@@ -202,3 +202,40 @@ def crop_or_pad_to_shape(data: np.ndarray, target_shape: Tuple[int, int, int]) -
         result = data[tuple(slices)]
 
     return result
+
+
+def split_segmentation_into_instances(seg_data: np.ndarray, session_id: str) -> List[Dict[str, Any]]:
+    """Split a multi-class segmentation into binary instances with unique session IDs.
+    
+    Args:
+        seg_data: Multi-class segmentation array
+        session_id: Base session ID to append indices to
+        
+    Returns:
+        List of dictionaries containing instance data and session IDs
+    """
+    # Find unique labels (excluding background/0)
+    unique_labels = np.unique(seg_data)
+    unique_labels = unique_labels[unique_labels > 0]  # Exclude background (0)
+    
+    if len(unique_labels) == 0:
+        logger.warning("No non-zero labels found in segmentation")
+        return []
+    
+    instances = []
+    for i, label in enumerate(unique_labels):
+        # Create binary mask for this label
+        binary_mask = (seg_data == label).astype(np.uint8)
+        
+        # Generate session ID with suffix
+        instance_session_id = f"{session_id}-{i}"
+        
+        instances.append({
+            "data": binary_mask,
+            "session_id": instance_session_id,
+            "label": int(label),
+        })
+        
+        logger.info(f"Created instance {i} for label {label} with session ID '{instance_session_id}'")
+    
+    return instances

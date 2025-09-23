@@ -122,6 +122,12 @@ class SaveLayerDialog(QDialog):
         self.user_input = QLineEdit("napari")
         form_layout.addRow("User ID:", self.user_input)
 
+        # Split instances checkbox (only for segmentations)
+        if layer_type == "segmentation":
+            self.split_instances_checkbox = QCheckBox("Split instances (create binary volumes for each label)")
+            self.split_instances_checkbox.setChecked(False)
+            form_layout.addRow("", self.split_instances_checkbox)
+
         # Overwrite checkbox
         overwrite_label = f"Overwrite existing {layer_type}"
         self.overwrite_checkbox = QCheckBox(overwrite_label)
@@ -194,9 +200,10 @@ class SaveLayerDialog(QDialog):
             "exist_ok": self.overwrite_checkbox.isChecked(),
         }
 
-        # Add voxel spacing for segmentations
+        # Add voxel spacing and split instances for segmentations
         if self.layer_type == "segmentation":
             base_values["voxel_spacing"] = self.voxel_spacing_combo.currentData()
+            base_values["split_instances"] = self.split_instances_checkbox.isChecked()
 
         return base_values
 

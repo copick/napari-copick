@@ -179,18 +179,9 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         session_id = save_params["session_id"]
         user_id = save_params["user_id"]
         exist_ok = save_params.get("exist_ok", False)
+        split_instances = save_params.get("split_instances", False)
 
-        yield f"Creating segmentation '{object_name}' for run '{run.name}'..."
-
-        # Create new segmentation
-        segmentation = run.new_segmentation(
-            voxel_size=voxel_spacing.voxel_size,
-            name=object_name,
-            session_id=session_id,
-            user_id=user_id,
-            is_multilabel=False,  # Single label segmentation
-            exist_ok=exist_ok,
-        )
+        yield f"Processing segmentation '{object_name}' for run '{run.name}'..."
 
         yield "Getting segmentation data from layer..."
 
@@ -212,24 +203,76 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
             yield "Segmentation shape matches target, no scaling needed..."
 
         yield "Converting data to uint8 format..."
-
-        # Ensure data is uint8 for segmentation
         seg_data = seg_data.astype(np.uint8)
 
-        yield "Saving segmentation to copick using from_numpy method..."
+        # Handle instance splitting if requested
+        if split_instances:
+            yield "Splitting segmentation into binary instances..."
+            from napari_copick.save_utils import split_segmentation_into_instances
+            
+            instances = split_segmentation_into_instances(seg_data, session_id)
+            
+            if not instances:
+                raise ValueError("No valid instances found in segmentation data")
+            
+            saved_segmentations = []
+            
+            for i, instance in enumerate(instances):
+                yield f"Saving instance {i+1}/{len(instances)} (label {instance['label']}, session '{instance['session_id']}')"
+                
+                # Create new segmentation for this instance
+                segmentation = run.new_segmentation(
+                    voxel_size=voxel_spacing.voxel_size,
+                    name=object_name,
+                    session_id=instance["session_id"],
+                    user_id=user_id,
+                    is_multilabel=False,  # Binary segmentation
+                    exist_ok=exist_ok,
+                )
+                
+                # Save the binary instance data
+                segmentation.from_numpy(instance["data"], levels=1, dtype=np.uint8)
+                saved_segmentations.append(segmentation)
+            
+            yield f"Successfully saved {len(instances)} binary instances for '{object_name}' to run '{run.name}'"
+            
+            return {
+                "success": True,
+                "message": f"Saved {len(instances)} binary instances for '{object_name}' to run '{run.name}'",
+                "segmentations": saved_segmentations,
+                "object_name": object_name,
+                "run_name": run.name,
+                "split_instances": True,
+                "instance_count": len(instances),
+            }
+        else:
+            yield "Creating single segmentation..."
+            
+            # Create new segmentation
+            segmentation = run.new_segmentation(
+                voxel_size=voxel_spacing.voxel_size,
+                name=object_name,
+                session_id=session_id,
+                user_id=user_id,
+                is_multilabel=False,  # Single label segmentation
+                exist_ok=exist_ok,
+            )
+            
+            yield "Saving segmentation to copick using from_numpy method..."
+            
+            # Save using copick's from_numpy method which follows copick conventions
+            segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
 
-        # Save using copick's from_numpy method which follows copick conventions
-        segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
+            yield f"Successfully saved segmentation '{object_name}' to run '{run.name}'"
 
-        yield f"Successfully saved segmentation '{object_name}' to run '{run.name}'"
-
-        return {
-            "success": True,
-            "message": f"Saved segmentation '{object_name}' to run '{run.name}'",
-            "segmentation": segmentation,
-            "object_name": object_name,
-            "run_name": run.name,
-        }
+            return {
+                "success": True,
+                "message": f"Saved segmentation '{object_name}' to run '{run.name}'",
+                "segmentation": segmentation,
+                "object_name": object_name,
+                "run_name": run.name,
+                "split_instances": False,
+            }
 
     except Exception as e:
         error_msg = f"Error saving segmentation: {str(e)}"
