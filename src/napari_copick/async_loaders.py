@@ -175,14 +175,17 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         layer = save_params["layer"]
         run = save_params["run"]
         voxel_spacing = save_params["voxel_spacing"]
-        object_name = save_params["object_name"]
         session_id = save_params["session_id"]
         user_id = save_params["user_id"]
         exist_ok = save_params.get("exist_ok", False)
         split_instances = save_params.get("split_instances", False)
         convert_to_binary = save_params.get("convert_to_binary", False)
+        is_multilabel = save_params.get("is_multilabel", False)
 
-        yield f"Processing segmentation '{object_name}' for run '{run.name}'..."
+        # Use segmentation_name for multilabel, object_name for single-label
+        segmentation_name = save_params.get("segmentation_name", save_params.get("object_name"))
+
+        yield f"Processing segmentation '{segmentation_name}' for run '{run.name}'..."
 
         yield "Getting segmentation data from layer..."
 
@@ -224,7 +227,7 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 # Create new segmentation for this instance
                 segmentation = run.new_segmentation(
                     voxel_size=voxel_spacing.voxel_size,
-                    name=object_name,
+                    name=segmentation_name,
                     session_id=instance["session_id"],
                     user_id=user_id,
                     is_multilabel=False,  # Binary segmentation
@@ -235,13 +238,13 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 segmentation.from_numpy(instance["data"], levels=1, dtype=np.uint8)
                 saved_segmentations.append(segmentation)
 
-            yield f"Successfully saved {len(instances)} binary instances for '{object_name}' to run '{run.name}'"
+            yield f"Successfully saved {len(instances)} binary instances for '{segmentation_name}' to run '{run.name}'"
 
             return {
                 "success": True,
-                "message": f"Saved {len(instances)} binary instances for '{object_name}' to run '{run.name}'",
+                "message": f"Saved {len(instances)} binary instances for '{segmentation_name}' to run '{run.name}'",
                 "segmentations": saved_segmentations,
-                "object_name": object_name,
+                "object_name": segmentation_name,
                 "run_name": run.name,
                 "split_instances": True,
                 "instance_count": len(instances),
@@ -258,7 +261,7 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
             # Create new segmentation
             segmentation = run.new_segmentation(
                 voxel_size=voxel_spacing.voxel_size,
-                name=object_name,
+                name=segmentation_name,
                 session_id=session_id,
                 user_id=user_id,
                 is_multilabel=False,  # Binary segmentation
@@ -270,26 +273,28 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
             # Save using copick's from_numpy method which follows copick conventions
             segmentation.from_numpy(binary_data, levels=1, dtype=np.uint8)
 
-            yield f"Successfully saved binary segmentation '{object_name}' to run '{run.name}'"
+            yield f"Successfully saved binary segmentation '{segmentation_name}' to run '{run.name}'"
 
             return {
                 "success": True,
-                "message": f"Saved binary segmentation '{object_name}' to run '{run.name}'",
+                "message": f"Saved binary segmentation '{segmentation_name}' to run '{run.name}'",
                 "segmentation": segmentation,
-                "object_name": object_name,
+                "object_name": segmentation_name,
                 "run_name": run.name,
                 "convert_to_binary": True,
             }
         else:
-            yield "Creating single segmentation..."
+            # Normal save mode - respects is_multilabel setting
+            seg_type = "multilabel" if is_multilabel else "single-label"
+            yield f"Creating {seg_type} segmentation..."
 
             # Create new segmentation
             segmentation = run.new_segmentation(
                 voxel_size=voxel_spacing.voxel_size,
-                name=object_name,
+                name=segmentation_name,
                 session_id=session_id,
                 user_id=user_id,
-                is_multilabel=False,  # Single label segmentation
+                is_multilabel=is_multilabel,
                 exist_ok=exist_ok,
             )
 
@@ -298,14 +303,15 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
             # Save using copick's from_numpy method which follows copick conventions
             segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
 
-            yield f"Successfully saved segmentation '{object_name}' to run '{run.name}'"
+            yield f"Successfully saved {seg_type} segmentation '{segmentation_name}' to run '{run.name}'"
 
             return {
                 "success": True,
-                "message": f"Saved segmentation '{object_name}' to run '{run.name}'",
+                "message": f"Saved {seg_type} segmentation '{segmentation_name}' to run '{run.name}'",
                 "segmentation": segmentation,
-                "object_name": object_name,
+                "object_name": segmentation_name,
                 "run_name": run.name,
+                "is_multilabel": is_multilabel,
             }
 
     except Exception as e:
