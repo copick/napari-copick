@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.0.1...napari-copick-v1.1.0) (2025-11-07)
+
+
+### ✨ Features
+
+* Add segmentation storage options ([#16](https://github.com/copick/napari-copick/issues/16)) ([df34dec](https://github.com/copick/napari-copick/commit/df34dec4451dfd2924ab2f7ed4ea41ea5269460e))
+
+
+### 🐞 Bug Fixes
+
+* Save copick config after updating objects in UI. ([#17](https://github.com/copick/napari-copick/issues/17)) ([f0b4690](https://github.com/copick/napari-copick/commit/f0b4690e787ea707b622870a1f64c3cf64d517a1))
+
 ## [1.0.1](https://github.com/copick/napari-copick/compare/napari-copick-v1.0.0...napari-copick-v1.0.1) (2025-07-27)
 
 
