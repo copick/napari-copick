@@ -122,6 +122,21 @@ class SaveLayerDialog(QDialog):
         self.user_input = QLineEdit("napari")
         form_layout.addRow("User ID:", self.user_input)
 
+        # Split instances checkbox (only for segmentations)
+        if layer_type == "segmentation":
+            self.split_instances_checkbox = QCheckBox("Split instances (create binary volumes for each label)")
+            self.split_instances_checkbox.setChecked(False)
+            form_layout.addRow("", self.split_instances_checkbox)
+
+            # Convert to binary checkbox (only for segmentations)
+            self.convert_to_binary_checkbox = QCheckBox("Convert to binary (set all non-zero labels to 1)")
+            self.convert_to_binary_checkbox.setChecked(False)
+            form_layout.addRow("", self.convert_to_binary_checkbox)
+
+            # Make the checkboxes mutually exclusive
+            self.split_instances_checkbox.toggled.connect(self._on_split_instances_toggled)
+            self.convert_to_binary_checkbox.toggled.connect(self._on_convert_to_binary_toggled)
+
         # Overwrite checkbox
         overwrite_label = f"Overwrite existing {layer_type}"
         self.overwrite_checkbox = QCheckBox(overwrite_label)
@@ -194,11 +209,23 @@ class SaveLayerDialog(QDialog):
             "exist_ok": self.overwrite_checkbox.isChecked(),
         }
 
-        # Add voxel spacing for segmentations
+        # Add voxel spacing and processing options for segmentations
         if self.layer_type == "segmentation":
             base_values["voxel_spacing"] = self.voxel_spacing_combo.currentData()
+            base_values["split_instances"] = self.split_instances_checkbox.isChecked()
+            base_values["convert_to_binary"] = self.convert_to_binary_checkbox.isChecked()
 
         return base_values
+
+    def _on_split_instances_toggled(self, checked: bool) -> None:
+        """Handle split instances checkbox toggle - disable convert to binary when checked."""
+        if checked:
+            self.convert_to_binary_checkbox.setChecked(False)
+
+    def _on_convert_to_binary_toggled(self, checked: bool) -> None:
+        """Handle convert to binary checkbox toggle - disable split instances when checked."""
+        if checked:
+            self.split_instances_checkbox.setChecked(False)
 
 
 # Legacy aliases for backward compatibility
