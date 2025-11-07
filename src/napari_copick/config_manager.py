@@ -1,11 +1,12 @@
 """Configuration management for napari-copick plugin."""
 
+import json
 import logging
 from typing import List, Optional
 
 import copick
 from napari.utils import DirectLabelColormap
-from qtpy.QtWidgets import QDialog, QFileDialog
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from napari_copick.dialogs import DatasetIdDialog
 
@@ -75,29 +76,38 @@ class ConfigManager:
 
             dialog = EditObjectTypesDialog(self.parent_widget, config_objects)
             if dialog.exec_() == QDialog.Accepted:
-                # Get the updated objects from the dialog
-                updated_objects = dialog.get_objects()
+                # Check if there are any changes
+                if dialog.has_changes():
+                    # Get the updated objects from the dialog
+                    updated_objects = dialog.get_objects()
 
-                # Update the configuration with the new objects
-                self.parent_widget.root.config.pickable_objects = updated_objects
+                    # Update the configuration with the new objects
+                    self.parent_widget.root.config.pickable_objects = updated_objects
 
-                # Clear the cached overlay objects so they get recreated with the new config
-                self.parent_widget.root._objects = None
+                    # Save the updated config to disk
+                    self._save_config()
 
-                # Update any UI elements that depend on the object types
-                self.parent_widget.tree_expansion_manager.populate_tree(preserve_expansion=True)
+                    # Clear the cached overlay objects so they get recreated with the new config
+                    self.parent_widget.root._objects = None
 
-                # Update any loaded segmentation layers with new colormap
-                for layer in self.parent_widget.viewer.layers:
-                    if hasattr(layer, "colormap") and "Segmentation:" in layer.name:
-                        layer.colormap = DirectLabelColormap(
-                            color_dict=self.parent_widget.get_copick_colormap(),
-                        )
-                        layer.painting_labels = [obj.label for obj in updated_objects]
+                    # Update any UI elements that depend on the object types
+                    self.parent_widget.tree_expansion_manager.populate_tree(preserve_expansion=True)
 
-                self.parent_widget.info_label.setText(
-                    f"Updated {len(updated_objects)} object types in configuration",
-                )
+                    # Update any loaded segmentation layers with new colormap
+                    for layer in self.parent_widget.viewer.layers:
+                        if hasattr(layer, "colormap") and "Segmentation:" in layer.name:
+                            layer.colormap = DirectLabelColormap(
+                                color_dict=self.parent_widget.get_copick_colormap(),
+                            )
+                            layer.painting_labels = [obj.label for obj in updated_objects]
+
+                    self.parent_widget.info_label.setText(
+                        f"Updated and saved {len(updated_objects)} object types in configuration",
+                    )
+                    self.logger.info("Object types configuration updated and saved successfully")
+                else:
+                    self.parent_widget.info_label.setText("No changes made to object types")
+                    self.logger.info("No changes made to object types")
         except Exception as e:
             self.parent_widget.info_label.setText(f"Error opening EditObjectTypesDialog: {str(e)}")
 
@@ -109,6 +119,7 @@ class ConfigManager:
         """
         if config_path:
             self.parent_widget.root = copick.from_file(config_path)
+            self.parent_widget.config_path = config_path  # Store config path for saving
 
             # Initialize thumbnail cache with config file
             self._setup_thumbnail_cache(config_path)
@@ -185,3 +196,32 @@ class ConfigManager:
         self.parent_widget.edit_objects_button.setEnabled(True)
         self.parent_widget.save_segmentation_button.setEnabled(True)
         self.parent_widget.save_picks_button.setEnabled(True)
+
+    def _save_config(self) -> None:
+        """Save the current config to disk."""
+        if not self.parent_widget.root or not self.parent_widget.config_path:
+            QMessageBox.warning(
+                self.parent_widget,
+                "No Configuration",
+                "No copick configuration file loaded. Cannot save changes.\n\n"
+                "Note: Configurations loaded from dataset IDs cannot be saved.",
+            )
+            return
+
+        try:
+            with open(self.parent_widget.config_path, "w") as f:
+                json.dump(self.parent_widget.root.config.model_dump(), f, indent=4)
+
+            self.logger.info(f"Configuration saved to {self.parent_widget.config_path}")
+            self.parent_widget.info_label.setText(
+                f"Configuration saved to {self.parent_widget.config_path}",
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to save config: {e}")
+            QMessageBox.critical(
+                self.parent_widget,
+                "Error Saving Configuration",
+                f"Failed to save configuration: {str(e)}",
+            )
+            raise
