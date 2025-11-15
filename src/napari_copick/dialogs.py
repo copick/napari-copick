@@ -236,7 +236,9 @@ class SaveLayerDialog(QDialog):
 
             # Set the appropriate name field based on multilabel mode
             if is_multilabel:
-                base_values["segmentation_name"] = self.segmentation_name_input.text()
+                seg_name = self.segmentation_name_input.text()
+                base_values["segmentation_name"] = seg_name
+                base_values["object_name"] = seg_name  # For UI/logging compatibility
             else:
                 base_values["object_name"] = self.object_combo.currentData().name
         else:

@@ -51,7 +51,7 @@ def load_tomogram_worker(tomogram: copick.models.CopickTomogram, resolution_leve
             "tomogram": tomogram,
             "data": loaded_data,
             "voxel_size": voxel_size,
-            "name": f"Tomogram: {tomogram.meta.tomo_type} (Level {resolution_level})",
+            "name": f"[{tomogram.voxel_spacing.run.name}] Tomogram: {tomogram.meta.tomo_type} (Level {resolution_level})",
             "resolution_level": resolution_level,
         }
 
@@ -108,7 +108,7 @@ def load_segmentation_worker(segmentation: copick.models.CopickSegmentation, res
             "segmentation": segmentation,
             "data": loaded_data,
             "voxel_size": voxel_size,
-            "name": f"Segmentation: {segmentation.meta.name} ({segmentation.user_id} | {segmentation.session_id}) (Level {resolution_level})",
+            "name": f"[{segmentation.run.name}] Segmentation: {segmentation.meta.name} ({segmentation.user_id} | {segmentation.session_id}) (Level {resolution_level})",
             "resolution_level": resolution_level,
         }
 
