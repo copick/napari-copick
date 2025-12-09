@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.1.1...napari-copick-v1.2.0) (2025-12-09)
+
+
+### ✨ Features
+
+* Allow storing multilabel segmentations from napari-copick.  ([#21](https://github.com/copick/napari-copick/issues/21)) ([a9165e2](https://github.com/copick/napari-copick/commit/a9165e299b5c915408113f73677b487c2bdb5b9a))
+
 ## [1.1.1](https://github.com/copick/napari-copick/compare/napari-copick-v1.1.0...napari-copick-v1.1.1) (2025-12-03)
 
 
