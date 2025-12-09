@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/copick/napari-copick/compare/napari-copick-v1.1.0...napari-copick-v1.1.1) (2025-12-03)
+
+
+### 🐞 Bug Fixes
+
+* bump version to create zenodo DOI ([#19](https://github.com/copick/napari-copick/issues/19)) ([6c648fc](https://github.com/copick/napari-copick/commit/6c648fcff8ce7017a8649027c5d17101329a4b2c))
+
 ## [1.1.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.0.1...napari-copick-v1.1.0) (2025-11-07)
 
 
