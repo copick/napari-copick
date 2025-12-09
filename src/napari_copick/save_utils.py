@@ -29,18 +29,21 @@ def save_segmentation_to_copick(
     layer = save_params["layer"]
     run = save_params["run"]
     voxel_spacing = save_params["voxel_spacing"]
-    object_name = save_params["object_name"]
     session_id = save_params["session_id"]
     user_id = save_params["user_id"]
+    is_multilabel = save_params.get("is_multilabel", False)
+
+    # Use segmentation_name for multilabel, object_name for single-label
+    segmentation_name = save_params.get("segmentation_name", save_params.get("object_name"))
 
     try:
         # Create new segmentation
         segmentation = run.new_segmentation(
             voxel_size=voxel_spacing.voxel_size,
-            name=object_name,
+            name=segmentation_name,
             session_id=session_id,
             user_id=user_id,
-            is_multilabel=False,  # Single label segmentation
+            is_multilabel=is_multilabel,
         )
 
         # Get the segmentation data
@@ -58,7 +61,7 @@ def save_segmentation_to_copick(
         segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
 
         if info_callback:
-            info_callback(f"Saved segmentation '{object_name}' to run '{run.name}'")
+            info_callback(f"Saved segmentation '{segmentation_name}' to run '{run.name}'")
 
         return True
 
