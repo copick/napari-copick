@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.2.0...napari-copick-v1.3.0) (2026-02-13)
+
+
+### ✨ Features
+
+* Update dependencies.  ([#23](https://github.com/copick/napari-copick/issues/23)) ([86ee7ce](https://github.com/copick/napari-copick/commit/86ee7ce2dc2132352f8198da8c8836e06abf9383))
+
+
+### 🐞 Bug Fixes
+
+* Fix tests by removing python 3.9 env. ([#25](https://github.com/copick/napari-copick/issues/25)) ([2e36dfd](https://github.com/copick/napari-copick/commit/2e36dfd6f8135d1df1ec8bd576904c7f14b38c13))
+
 ## [1.2.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.1.1...napari-copick-v1.2.0) (2025-12-09)
 
 
