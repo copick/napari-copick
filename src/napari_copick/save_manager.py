@@ -50,11 +50,18 @@ class SaveManager:
         selected_object_name = None
         should_enable_overwrite = False
 
-        # Look for the currently active layer or the first segmentation layer
+        # Look for the currently active layer or a layer matching preferred prefixes
         if self.parent_widget.viewer.layers.selection.active in segmentation_layers:
             selected_layer = self.parent_widget.viewer.layers.selection.active
-        elif segmentation_layers:
-            selected_layer = segmentation_layers[0]
+        else:
+            # Prefer layers starting with "object" or "semantic map"
+            for layer in segmentation_layers:
+                lower_name = layer.name.lower()
+                if lower_name.startswith("object") or lower_name.startswith("semantic map"):
+                    selected_layer = layer
+                    break
+            if selected_layer is None and segmentation_layers:
+                selected_layer = segmentation_layers[0]
 
         # Check if this layer was loaded from an existing segmentation
         if selected_layer and "copick_source_object_name" in selected_layer.metadata:
