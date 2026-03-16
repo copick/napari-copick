@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.3.0...napari-copick-v1.4.0) (2026-03-16)
+
+
+### ✨ Features
+
+* Add intelligent name defaults when saving segmentations ([#26](https://github.com/copick/napari-copick/issues/26)) ([7ad1961](https://github.com/copick/napari-copick/commit/7ad1961c92fda36060e5df29dfbdf81c9c55b39b))
+
 ## [1.3.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.2.0...napari-copick-v1.3.0) (2026-02-13)
 
 
