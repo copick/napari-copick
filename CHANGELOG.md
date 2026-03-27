@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.6.0...napari-copick-v1.7.0) (2026-03-27)
+
+
+### ✨ Features
+
+* auto-select what to save ([#32](https://github.com/copick/napari-copick/issues/32)) ([5de428f](https://github.com/copick/napari-copick/commit/5de428fd695251cad1279aac15e2d917a6289f47))
+
 ## [1.6.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.5.0...napari-copick-v1.6.0) (2026-03-27)
 
 
