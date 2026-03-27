@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.5.0...napari-copick-v1.6.0) (2026-03-27)
+
+
+### ✨ Features
+
+* Search feature for tree widget. ([#30](https://github.com/copick/napari-copick/issues/30)) ([652cfd9](https://github.com/copick/napari-copick/commit/652cfd98f0f0467e65178638966000fdc14aae73))
+
 ## [1.5.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.4.0...napari-copick-v1.5.0) (2026-03-27)
 
 
