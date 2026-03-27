@@ -9,6 +9,7 @@ from qtpy.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QProgressBar,
     QPushButton,
     QTabWidget,
@@ -117,6 +118,14 @@ class CopickPlugin(QWidget):
 
         # Hierarchical tree view
         self.tree_view = CopickTreeWidget(self)
+
+        # Search field for filtering runs by name
+        self.tree_search = QLineEdit()
+        self.tree_search.setPlaceholderText("Search runs...")
+        self.tree_search.setClearButtonEnabled(True)
+        self.tree_search.textChanged.connect(self.tree_view.filter_by_name)
+        tree_layout.addWidget(self.tree_search)
+
         tree_layout.addWidget(self.tree_view)
 
         # Save buttons layout
