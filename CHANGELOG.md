@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.4.0...napari-copick-v1.5.0) (2026-03-27)
+
+
+### ✨ Features
+
+* Update requirements. ([#28](https://github.com/copick/napari-copick/issues/28)) ([83c93f1](https://github.com/copick/napari-copick/commit/83c93f1fb704e68c2309aad6438179076761eb97))
+
 ## [1.4.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.3.0...napari-copick-v1.4.0) (2026-03-16)
 
 
