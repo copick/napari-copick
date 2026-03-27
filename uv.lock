@@ -2,10 +2,14 @@ version = 1
 revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 required-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'win32'",
@@ -183,14 +187,42 @@ wheels = [
 
 [[package]]
 name = "app-model"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "in-n-out", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "psygnal", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pydantic", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pydantic-compat", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "typing-extensions", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b0/1e/968922a6fd3fe8dd50bded011b00fd59274e061426b78d67e4bece79da23/app_model-0.3.2.tar.gz", hash = "sha256:06252cd5c6e80df6c5e837eca969bb27d1602a332574b50a4e87141aac42ea69", size = 120136, upload-time = "2025-06-20T17:41:20.184Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/56/cc/b79c9662a8a6620767a47c99fab08698efcf67a5d0835942e61d884d3c46/app_model-0.3.2-py3-none-any.whl", hash = "sha256:fa0e674e0981d5ec2b09d30a74b6aacf4faee7d1de00bd5a9fa886a3cfbf6789", size = 65710, upload-time = "2025-06-20T17:41:18.442Z" },
+]
+
+[[package]]
+name = "app-model"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "in-n-out" },
-    { name = "psygnal" },
-    { name = "pydantic" },
-    { name = "pydantic-compat" },
-    { name = "typing-extensions" },
+    { name = "in-n-out", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "psygnal", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pydantic", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pydantic-compat", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "typing-extensions", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8d/23/a9537fd7021e8b6ea7db96b73e66fe61e809a3b23338de07d1176e69e4ee/app_model-0.4.0.tar.gz", hash = "sha256:ccf667999f6c659e921ca3490b6da176971e67cf2f41abc34e33caa8cfa18573", size = 120529, upload-time = "2025-06-20T17:41:08.943Z" }
 wheels = [
@@ -567,7 +599,7 @@ wheels = [
 
 [[package]]
 name = "copick"
-version = "1.20.0"
+version = "1.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -599,9 +631,9 @@ dependencies = [
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "zarr", version = "2.18.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/43/07f30e31b688f146eaa0c86e14d38e35b33991204e5c50185c4962445aef/copick-1.20.0.tar.gz", hash = "sha256:ba2a4cf227c58317f4e5a8956604b05173c6175c73866b076d8e636370052046", size = 9319596, upload-time = "2026-02-13T22:01:29.416Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c0/c9/9f58b54a9549012cf39eda41dbc19e65d175c78380a2502df5fd749cc961/copick-1.21.0.tar.gz", hash = "sha256:288b1be18b6737c55917a1d2d4d017e99a1ec1f4e770535517a5eb79217617ad", size = 9324215, upload-time = "2026-03-27T04:22:18.053Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/87/ed6af9a9e01b6e256c4db87c4077fe701f038e1460a75cf4a91ccef4b458/copick-1.20.0-py3-none-any.whl", hash = "sha256:43ff42ea1fe229cd0fb23bc55530818565466b25638ceba2ca9334278df6817c", size = 153087, upload-time = "2026-02-13T22:01:27Z" },
+    { url = "https://files.pythonhosted.org/packages/46/bd/a8a30e71f0f755a6014a430b2f3225c6d8b6b70037f22d09d81c0cdee196/copick-1.21.0-py3-none-any.whl", hash = "sha256:7e1938fa6e099dc23c5420dfcb2e26968e59954ded6a776efd54d9c274c9a9ec", size = 155822, upload-time = "2026-03-27T04:22:16.595Z" },
 ]
 
 [package.optional-dependencies]
@@ -1273,7 +1305,8 @@ dependencies = [
     { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "ipython", version = "9.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "jupyter-client" },
-    { name = "jupyter-core" },
+    { name = "jupyter-core", version = "5.8.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "jupyter-core", version = "5.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
     { name = "matplotlib-inline" },
     { name = "nest-asyncio" },
     { name = "packaging" },
@@ -1292,8 +1325,10 @@ name = "ipython"
 version = "8.37.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "colorama", marker = "python_full_version < '3.11' and sys_platform == 'win32'" },
@@ -1318,8 +1353,10 @@ name = "ipython"
 version = "9.4.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "colorama", marker = "python_full_version >= '3.11' and sys_platform == 'win32'" },
@@ -1416,7 +1453,8 @@ name = "jupyter-client"
 version = "8.6.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-core" },
+    { name = "jupyter-core", version = "5.8.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "jupyter-core", version = "5.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
     { name = "python-dateutil" },
     { name = "pyzmq" },
     { name = "tornado" },
@@ -1431,14 +1469,39 @@ wheels = [
 name = "jupyter-core"
 version = "5.8.1"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "platformdirs" },
-    { name = "pywin32", marker = "platform_python_implementation != 'PyPy' and sys_platform == 'win32'" },
-    { name = "traitlets" },
+    { name = "platformdirs", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pywin32", marker = "platform_machine != 'x86_64' and platform_python_implementation != 'PyPy' and sys_platform == 'win32'" },
+    { name = "traitlets", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/99/1b/72906d554acfeb588332eaaa6f61577705e9ec752ddb486f302dafa292d9/jupyter_core-5.8.1.tar.gz", hash = "sha256:0a5f9706f70e64786b75acba995988915ebd4601c8a52e534a40b51c95f59941", size = 88923, upload-time = "2025-05-27T07:38:16.655Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2f/57/6bffd4b20b88da3800c5d691e0337761576ee688eb01299eae865689d2df/jupyter_core-5.8.1-py3-none-any.whl", hash = "sha256:c28d268fc90fb53f1338ded2eb410704c5449a358406e8a948b75706e24863d0", size = 28880, upload-time = "2025-05-27T07:38:15.137Z" },
+]
+
+[[package]]
+name = "jupyter-core"
+version = "5.9.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "platformdirs", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "traitlets", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/49/9d1284d0dc65e2c757b74c6687b6d319b02f822ad039e5c512df9194d9dd/jupyter_core-5.9.1.tar.gz", hash = "sha256:4d09aaff303b9566c3ce657f580bd089ff5c91f5f89cf7d8846c3cdf465b5508", size = 89814, upload-time = "2025-10-16T19:19:18.444Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/e7/80988e32bf6f73919a113473a604f5a8f09094de312b9d52b79c2df7612b/jupyter_core-5.9.1-py3-none-any.whl", hash = "sha256:ebf87fdc6073d142e114c72c9e29a9d7ca03fad818c5d300ce2adc1fb0743407", size = 29032, upload-time = "2025-10-16T19:19:16.783Z" },
 ]
 
 [[package]]
@@ -1862,47 +1925,107 @@ wheels = [
 
 [[package]]
 name = "napari"
+version = "0.5.4"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "app-model", version = "0.3.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "appdirs", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "cachey", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "certifi", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "dask", extra = ["array"], marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "imageio", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "jsonschema", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "lazy-loader", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "magicgui", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "napari-console", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "napari-plugin-engine", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "napari-svg", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "npe2", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "numpydoc", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pandas", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pillow", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pint", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "psutil", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "psygnal", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pydantic", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pygments", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pyopengl", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pyyaml", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "qtpy", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "scikit-image", extra = ["data"], marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "scipy", version = "1.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "superqt", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "tifffile", version = "2025.6.11", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "toolz", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "tqdm", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "typing-extensions", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "vispy", version = "0.14.3", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "wrapt", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7a/fc/d2a0525499582a3367d963ddf58b516e86b934e18784011e340fe2a36012/napari-0.5.4.tar.gz", hash = "sha256:3311140a873c903b7975d1607dadab04c3f94dbb3f9c3c599bb31c5c981591e4", size = 2825527, upload-time = "2024-09-30T19:54:41.107Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/c8/6bcaf27758397c8f1da906113bc99a9a4bbbc062835c2bff4fb2c3406753/napari-0.5.4-py3-none-any.whl", hash = "sha256:aa732ea7bcd3698442db1295c75f11a3a5e0930fa0efdfb628250d7125d9e88e", size = 3062422, upload-time = "2024-09-30T19:54:38.25Z" },
+]
+
+[[package]]
+name = "napari"
 version = "0.6.2"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "app-model" },
-    { name = "appdirs" },
-    { name = "cachey" },
-    { name = "certifi" },
-    { name = "dask", extra = ["array"] },
-    { name = "imageio" },
-    { name = "jsonschema" },
-    { name = "lazy-loader" },
-    { name = "magicgui" },
-    { name = "napari-console" },
-    { name = "napari-plugin-engine" },
-    { name = "napari-svg" },
-    { name = "npe2" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "numpydoc" },
-    { name = "pandas" },
-    { name = "pillow" },
-    { name = "pint" },
-    { name = "psutil" },
-    { name = "psygnal" },
-    { name = "pydantic" },
-    { name = "pygments" },
-    { name = "pyopengl" },
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
-    { name = "pyyaml" },
-    { name = "qtpy" },
-    { name = "scikit-image", extra = ["data"] },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "scipy", version = "1.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "superqt" },
-    { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "tifffile", version = "2025.6.11", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "toolz" },
-    { name = "tqdm" },
-    { name = "typing-extensions" },
-    { name = "vispy" },
-    { name = "wrapt" },
+    { name = "app-model", version = "0.4.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "appdirs", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "cachey", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "certifi", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "dask", extra = ["array"], marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "imageio", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "jsonschema", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "lazy-loader", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "magicgui", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "napari-console", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "napari-plugin-engine", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "napari-svg", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "npe2", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version < '3.11' and sys_platform != 'win32')" },
+    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and platform_machine != 'x86_64') or (python_full_version >= '3.11' and sys_platform != 'win32')" },
+    { name = "numpydoc", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pandas", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pillow", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pint", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "psutil", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "psygnal", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pydantic", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pygments", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pyopengl", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pywin32", marker = "platform_machine != 'x86_64' and sys_platform == 'win32'" },
+    { name = "pyyaml", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "qtpy", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "scikit-image", extra = ["data"], marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version < '3.11' and sys_platform != 'win32')" },
+    { name = "scipy", version = "1.16.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and platform_machine != 'x86_64') or (python_full_version >= '3.11' and sys_platform != 'win32')" },
+    { name = "superqt", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version < '3.11' and sys_platform != 'win32')" },
+    { name = "tifffile", version = "2025.6.11", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and platform_machine != 'x86_64') or (python_full_version >= '3.11' and sys_platform != 'win32')" },
+    { name = "toolz", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "tqdm", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "typing-extensions", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "vispy", version = "0.15.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "wrapt", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/7e/7a3c0d88a1e7578f168df75ed5e2a38d9f0d0ff605c957161d9654b12268/napari-0.6.2.tar.gz", hash = "sha256:c74c0fbcf087faa524475d5ef6d16a0e0ed09a7ab4a3afaf45a8fddc93cf274d", size = 3202040, upload-time = "2025-07-01T02:38:01.495Z" }
 wheels = [
@@ -1934,7 +2057,8 @@ dependencies = [
     { name = "copick-shared-ui" },
     { name = "fsspec" },
     { name = "magicgui" },
-    { name = "napari" },
+    { name = "napari", version = "0.5.4", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "napari", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
     { name = "napari-ome-zarr" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -1955,8 +2079,10 @@ dev = [
     { name = "ruff" },
 ]
 testing = [
-    { name = "napari" },
-    { name = "pyqt6" },
+    { name = "napari", version = "0.5.4", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "napari", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pyqt6", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "pyqt6", version = "6.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-qt" },
@@ -1969,7 +2095,7 @@ testing = [
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "click" },
-    { name = "copick", specifier = ">=1.20.0" },
+    { name = "copick", specifier = ">=1.21.0" },
     { name = "copick-shared-ui", specifier = "==0.3.0" },
     { name = "fsspec" },
     { name = "hatch-vcs", marker = "extra == 'dev'", specifier = ">=0.4.0" },
@@ -2001,12 +2127,14 @@ name = "napari-ome-zarr"
 version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "napari" },
+    { name = "napari", version = "0.5.4", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "napari", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "ome-zarr", version = "0.10.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version <= '3.10'" },
     { name = "ome-zarr", version = "0.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version > '3.10'" },
-    { name = "vispy" },
+    { name = "vispy", version = "0.14.3", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "vispy", version = "0.15.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/67/50/630bff98a60e71fad6a1e9a5cee3df7a043c88668ff752dacedbf0d987d1/napari_ome_zarr-0.6.1.tar.gz", hash = "sha256:3d3054823c2adaa4d2bf370c46adcc4a54192cfec3bbbe98d144e50b95bd6f89", size = 21099, upload-time = "2024-07-15T10:15:07.706Z" }
 wheels = [
@@ -2030,7 +2158,8 @@ dependencies = [
     { name = "imageio" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "vispy" },
+    { name = "vispy", version = "0.14.3", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "vispy", version = "0.15.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a7/90/802f8288d16c1513b908d644779e733461a53b6c1a2c7561f1464c9f1516/napari_svg-0.2.1.tar.gz", hash = "sha256:031f13b34b0948afbdcb11eb00728fe32ef7e4e3aa3905f923001d6871a08ad9", size = 17533, upload-time = "2025-01-14T07:26:30.657Z" }
 wheels = [
@@ -2051,8 +2180,10 @@ name = "networkx"
 version = "3.4.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fd/1d/06475e1cd5264c0b870ea2cc6fdb3e37177c1e565c43f56ff17a10e3937f/networkx-3.4.2.tar.gz", hash = "sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1", size = 2151368, upload-time = "2024-10-21T12:39:38.695Z" }
 wheels = [
@@ -2064,8 +2195,10 @@ name = "networkx"
 version = "3.5"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6c/4f/ccdb8ad3a38e583f214547fd2f7ff1fc160c43a75af88e6aec213404b96a/networkx-3.5.tar.gz", hash = "sha256:d4c6f9cf81f52d69230866796b82afbccdec3db7ae4fbd1b65ea750feed50037", size = 2471065, upload-time = "2025-05-29T11:35:07.804Z" }
 wheels = [
@@ -2106,8 +2239,10 @@ name = "numcodecs"
 version = "0.13.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -2137,8 +2272,10 @@ name = "numcodecs"
 version = "0.15.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "deprecated", marker = "python_full_version >= '3.11'" },
@@ -2165,8 +2302,10 @@ name = "numpy"
 version = "2.2.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/21/7d2a95e4bba9dc13d043ee156a356c0a8f0c6309dff6b21b4d71a073b8a8/numpy-2.2.6.tar.gz", hash = "sha256:e29554e2bef54a90aa5cc07da6ce955accb83f21ab5de01a62c8478897b264fd", size = 20276440, upload-time = "2025-05-17T22:38:04.611Z" }
 wheels = [
@@ -2231,8 +2370,10 @@ name = "numpy"
 version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2e/19/d7c972dfe90a353dbd3efbbe1d14a5951de80c99c9dc1b93cd998d51dc0f/numpy-2.3.1.tar.gz", hash = "sha256:1ec9ae20a4226da374362cca3c62cd753faf2f951440b0e3b98e93c235441d2b", size = 20390372, upload-time = "2025-06-21T12:28:33.469Z" }
 wheels = [
@@ -2307,7 +2448,8 @@ name = "ome-zarr"
 version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version <= '3.10'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "aiohttp", marker = "python_full_version <= '3.10'" },
@@ -2330,9 +2472,12 @@ name = "ome-zarr"
 version = "0.11.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
-    "python_full_version > '3.10' and python_full_version < '3.11'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "aiohttp", marker = "python_full_version > '3.10'" },
@@ -2445,7 +2590,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -3014,11 +3159,32 @@ wheels = [
 
 [[package]]
 name = "pyqt6"
+version = "6.0.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "pyqt6-sip", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/01/b2b521b6df7153d57d6aa119184afdc8bf8d7d538a5fb22083c6093a49b9/PyQt6-6.0.0.tar.gz", hash = "sha256:c758b0568127bffd7147f461d74bbf06249177eae908efed8099eec30984f1b3", size = 579082, upload-time = "2021-01-04T18:33:54.296Z" }
+
+[[package]]
+name = "pyqt6"
 version = "6.9.1"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "pyqt6-qt6" },
-    { name = "pyqt6-sip" },
+    { name = "pyqt6-qt6", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "pyqt6-sip", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/32/1b/567f46eb43ca961efd38d7a0b73efb70d7342854f075fd919179fdb2a571/pyqt6-6.9.1.tar.gz", hash = "sha256:50642be03fb40f1c2111a09a1f5a0f79813e039c15e78267e6faaf8a96c1c3a6", size = 1067230, upload-time = "2025-06-06T08:49:30.307Z" }
 wheels = [
@@ -3284,7 +3450,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ipykernel" },
     { name = "jupyter-client" },
-    { name = "jupyter-core" },
+    { name = "jupyter-core", version = "5.8.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "jupyter-core", version = "5.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
     { name = "packaging" },
     { name = "pygments" },
     { name = "qtpy" },
@@ -3601,8 +3768,10 @@ name = "scipy"
 version = "1.15.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -3661,8 +3830,10 @@ name = "scipy"
 version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -3793,8 +3964,10 @@ name = "sphinx"
 version = "8.1.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "alabaster", marker = "python_full_version < '3.11'" },
@@ -3825,8 +3998,10 @@ name = "sphinx"
 version = "8.2.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "alabaster", marker = "python_full_version >= '3.11'" },
@@ -4026,8 +4201,10 @@ name = "tifffile"
 version = "2025.5.10"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -4042,8 +4219,10 @@ name = "tifffile"
 version = "2025.6.11"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -4324,15 +4503,46 @@ wheels = [
 
 [[package]]
 name = "vispy"
+version = "0.14.3"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "freetype-py", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "hsluv", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "kiwisolver", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'" },
+    { name = "packaging", marker = "platform_machine == 'x86_64' and sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/96/a0bf368c0a8f5c9b599f3f9f4643b425298dfde8a744c9b0b02af9ce8595/vispy-0.14.3.tar.gz", hash = "sha256:efbbb847a908baf7e7169ab9bf296138a39364f367e6cb0a8ec03ad71699d31d", size = 2508703, upload-time = "2024-06-17T12:33:02.474Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/33/353ae8a9cc093e07862ebab52beb5d04fb3764014e6bc9e01f7de25861cb/vispy-0.14.3-cp310-cp310-win_amd64.whl", hash = "sha256:f211440444edea428c9d0ffb70447e945015071efb3332408c6335b07c47574e", size = 1468907, upload-time = "2024-06-17T12:32:31.238Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/5d/3a522ad57f6aeaff91bc7653854c27207fab9094d3ca2615db539a946227/vispy-0.14.3-cp311-cp311-win_amd64.whl", hash = "sha256:12d8e23ffb865e6d491d71cbf0dc54f53ca41b9167f5de99cdb08921a111f585", size = 1468954, upload-time = "2024-06-17T12:32:40.231Z" },
+    { url = "https://files.pythonhosted.org/packages/75/72/e02fb3b3e3ad4458bdc9830e97a980919921752bca1f40d816c1e25d566f/vispy-0.14.3-cp312-cp312-win_amd64.whl", hash = "sha256:2b39304dae410fde21723cdcf50cae71ba611479f01cb8e30116493ce318fcab", size = 1469553, upload-time = "2024-06-17T12:32:50.309Z" },
+]
+
+[[package]]
+name = "vispy"
 version = "0.15.2"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "freetype-py" },
-    { name = "hsluv" },
-    { name = "kiwisolver" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "packaging" },
+    { name = "freetype-py", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "hsluv", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "kiwisolver", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version < '3.11' and sys_platform != 'win32')" },
+    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and platform_machine != 'x86_64') or (python_full_version >= '3.11' and sys_platform != 'win32')" },
+    { name = "packaging", marker = "platform_machine != 'x86_64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1b/2e/ef2697f963111cf1bc83568bbe55f262b7c7c8a72948a6e802a7c236f2c1/vispy-0.15.2.tar.gz", hash = "sha256:d52d10c0697f48990555cea2a2bad3f9f5a772391856fda364ea4bbc69fd075c", size = 2513383, upload-time = "2025-05-19T13:26:41.015Z" }
 wheels = [
@@ -4535,8 +4745,10 @@ name = "zarr"
 version = "2.18.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version > '3.10' and python_full_version < '3.11'",
-    "python_full_version <= '3.10'",
+    "(python_full_version > '3.10' and python_full_version < '3.11' and platform_machine != 'x86_64') or (python_full_version > '3.10' and python_full_version < '3.11' and sys_platform != 'win32')",
+    "python_full_version > '3.10' and python_full_version < '3.11' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version <= '3.10' and platform_machine != 'x86_64') or (python_full_version <= '3.10' and sys_platform != 'win32')",
+    "python_full_version <= '3.10' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "asciitree", marker = "python_full_version < '3.11'" },
@@ -4554,8 +4766,10 @@ name = "zarr"
 version = "2.18.7"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12'",
-    "python_full_version == '3.11.*'",
+    "(python_full_version >= '3.12' and platform_machine != 'x86_64') or (python_full_version >= '3.12' and sys_platform != 'win32')",
+    "python_full_version >= '3.12' and platform_machine == 'x86_64' and sys_platform == 'win32'",
+    "(python_full_version == '3.11.*' and platform_machine != 'x86_64') or (python_full_version == '3.11.*' and sys_platform != 'win32')",
+    "python_full_version == '3.11.*' and platform_machine == 'x86_64' and sys_platform == 'win32'",
 ]
 dependencies = [
     { name = "asciitree", marker = "python_full_version >= '3.11'" },
