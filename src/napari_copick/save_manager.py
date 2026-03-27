@@ -22,6 +22,8 @@ class SaveManager:
         """
         self.parent_widget = parent_widget
         self.logger = logging.getLogger("CopickPlugin.SaveManager")
+        self._last_session_id: str | None = None
+        self._last_user_id: str | None = None
 
     def open_save_segmentation_dialog(self) -> None:
         """Open dialog to save a segmentation layer to copick."""
@@ -75,10 +77,14 @@ class SaveManager:
             preset_layer=selected_layer,
             preset_object_name=selected_object_name,
             preset_overwrite=should_enable_overwrite,
+            preset_session_id=self._last_session_id,
+            preset_user_id=self._last_user_id,
         )
         if dialog.exec_() == QDialog.Accepted:
             try:
                 result = dialog.get_values()
+                self._last_session_id = result["session_id"]
+                self._last_user_id = result["user_id"]
                 self.save_segmentation_async(result)
             except Exception as e:
                 self.parent_widget.info_label.setText(f"Error saving segmentation: {str(e)}")
@@ -222,10 +228,14 @@ class SaveManager:
             preset_object_name=selected_object_name,
             preset_overwrite=should_enable_overwrite,
             preset_run=selected_run,
+            preset_session_id=self._last_session_id,
+            preset_user_id=self._last_user_id,
         )
         if dialog.exec_() == QDialog.Accepted:
             try:
                 result = dialog.get_values()
+                self._last_session_id = result["session_id"]
+                self._last_user_id = result["user_id"]
                 success = save_picks_to_copick(result, self.parent_widget.info_label.setText)
                 if success:
                     # Refresh tree while preserving expansion state

@@ -68,6 +68,8 @@ class SaveLayerDialog(QDialog):
         preset_object_name: Optional[str] = None,
         preset_overwrite: bool = False,
         preset_run: Optional[copick.models.CopickRun] = None,
+        preset_session_id: Optional[str] = None,
+        preset_user_id: Optional[str] = None,
     ) -> None:
         super().__init__(parent)
 
@@ -85,6 +87,8 @@ class SaveLayerDialog(QDialog):
         self.preset_object_name = preset_object_name
         self.preset_overwrite = preset_overwrite
         self.preset_run = preset_run
+        self.preset_session_id = preset_session_id
+        self.preset_user_id = preset_user_id
 
         layout = QVBoxLayout()
         form_layout = QFormLayout()
@@ -133,11 +137,11 @@ class SaveLayerDialog(QDialog):
             form_layout.addRow("Segmentation Name:", self.segmentation_name_input)
 
         # Session ID
-        self.session_input = QLineEdit("manual")
+        self.session_input = QLineEdit(self.preset_session_id or "manual")
         form_layout.addRow("Session ID:", self.session_input)
 
         # User ID
-        self.user_input = QLineEdit("napari")
+        self.user_input = QLineEdit(self.preset_user_id or "napari")
         form_layout.addRow("User ID:", self.user_input)
 
         # Split instances checkbox (only for segmentations)
@@ -295,6 +299,8 @@ class SaveSegmentationDialog(SaveLayerDialog):
         preset_layer: Optional[Any] = None,
         preset_object_name: Optional[str] = None,
         preset_overwrite: bool = False,
+        preset_session_id: Optional[str] = None,
+        preset_user_id: Optional[str] = None,
     ) -> None:
         super().__init__(
             parent=parent,
@@ -305,6 +311,8 @@ class SaveSegmentationDialog(SaveLayerDialog):
             preset_layer=preset_layer,
             preset_object_name=preset_object_name,
             preset_overwrite=preset_overwrite,
+            preset_session_id=preset_session_id,
+            preset_user_id=preset_user_id,
         )
 
 
