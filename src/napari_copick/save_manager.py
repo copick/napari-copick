@@ -22,6 +22,8 @@ class SaveManager:
         """
         self.parent_widget = parent_widget
         self.logger = logging.getLogger("CopickPlugin.SaveManager")
+        self._last_session_id: str | None = None
+        self._last_user_id: str | None = None
 
     def open_save_segmentation_dialog(self) -> None:
         """Open dialog to save a segmentation layer to copick."""
@@ -50,17 +52,16 @@ class SaveManager:
         selected_object_name = None
         should_enable_overwrite = False
 
-        # Look for the currently active layer or a layer matching preferred prefixes
-        if self.parent_widget.viewer.layers.selection.active in segmentation_layers:
-            selected_layer = self.parent_widget.viewer.layers.selection.active
-        else:
-            # Prefer layers starting with "object" or "semantic map"
-            for layer in segmentation_layers:
-                lower_name = layer.name.lower()
-                if lower_name.startswith("object") or lower_name.startswith("semantic map"):
-                    selected_layer = layer
-                    break
-            if selected_layer is None and segmentation_layers:
+        # Prefer layers matching known prefixes, then fall back to active layer
+        for layer in segmentation_layers:
+            lower_name = layer.name.lower()
+            if lower_name.startswith("object") or lower_name.startswith("semantic map"):
+                selected_layer = layer
+                break
+        if selected_layer is None:
+            if self.parent_widget.viewer.layers.selection.active in segmentation_layers:
+                selected_layer = self.parent_widget.viewer.layers.selection.active
+            elif segmentation_layers:
                 selected_layer = segmentation_layers[0]
 
         # Check if this layer was loaded from an existing segmentation
@@ -76,10 +77,14 @@ class SaveManager:
             preset_layer=selected_layer,
             preset_object_name=selected_object_name,
             preset_overwrite=should_enable_overwrite,
+            preset_session_id=self._last_session_id,
+            preset_user_id=self._last_user_id,
         )
         if dialog.exec_() == QDialog.Accepted:
             try:
                 result = dialog.get_values()
+                self._last_session_id = result["session_id"]
+                self._last_user_id = result["user_id"]
                 self.save_segmentation_async(result)
             except Exception as e:
                 self.parent_widget.info_label.setText(f"Error saving segmentation: {str(e)}")
@@ -223,10 +228,14 @@ class SaveManager:
             preset_object_name=selected_object_name,
             preset_overwrite=should_enable_overwrite,
             preset_run=selected_run,
+            preset_session_id=self._last_session_id,
+            preset_user_id=self._last_user_id,
         )
         if dialog.exec_() == QDialog.Accepted:
             try:
                 result = dialog.get_values()
+                self._last_session_id = result["session_id"]
+                self._last_user_id = result["user_id"]
                 success = save_picks_to_copick(result, self.parent_widget.info_label.setText)
                 if success:
                     # Refresh tree while preserving expansion state
