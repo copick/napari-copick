@@ -47,11 +47,23 @@ class CopickTreeWidget(QTreeWidget):
 
     def populate_tree(self, root: copick.models.CopickRoot) -> None:
         """Populate the tree with runs from the copick root."""
+        # Reset search field without triggering a filter pass
+        if hasattr(self.parent_widget, "tree_search"):
+            self.parent_widget.tree_search.blockSignals(True)
+            self.parent_widget.tree_search.clear()
+            self.parent_widget.tree_search.blockSignals(False)
         self.clear()
         for run in root.runs:
             run_item = QTreeWidgetItem(self, [run.name])
             run_item.setData(0, Qt.UserRole, run)
             run_item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+
+    def filter_by_name(self, text: str) -> None:
+        """Filter top-level run items by name (case-insensitive substring match)."""
+        search_term = text.lower()
+        for i in range(self.topLevelItemCount()):
+            item = self.topLevelItem(i)
+            item.setHidden(bool(search_term) and search_term not in item.text(0).lower())
 
     def handle_item_expand(self, item: QTreeWidgetItem) -> None:
         """Handle item expansion for runs and voxel spacings."""
