@@ -42,6 +42,15 @@ except ImportError:
     INFO_AVAILABLE = False
     NapariCopickInfoWidget = None
 
+# Import the CLI tools widget
+try:
+    from napari_copick.cli_widget import NapariCopickCLIWidget
+
+    CLI_AVAILABLE = True
+except ImportError:
+    CLI_AVAILABLE = False
+    NapariCopickCLIWidget = None
+
 
 class CopickPlugin(QWidget):
     def __init__(
@@ -180,6 +189,19 @@ class CopickPlugin(QWidget):
             fallback_layout.addWidget(fallback_label)
             self.tab_widget.addTab(info_fallback, "📋 Info View")
 
+        # CLI tools tab
+        if CLI_AVAILABLE:
+            self.cli_widget = NapariCopickCLIWidget(self.viewer, self)
+            self.tab_widget.addTab(self.cli_widget, "\U0001f527 Tools")
+        else:
+            cli_fallback = QWidget()
+            fallback_layout = QVBoxLayout(cli_fallback)
+            fallback_label = QLabel("Tools not available\n\nThe copick-shared-ui package is required.")
+            fallback_label.setAlignment(Qt.AlignCenter)
+            fallback_label.setStyleSheet("color: #888; font-size: 14px; padding: 40px;")
+            fallback_layout.addWidget(fallback_label)
+            self.tab_widget.addTab(cli_fallback, "\U0001f527 Tools")
+
         layout.addWidget(self.tab_widget)
 
         # Resolution level selector
@@ -286,6 +308,12 @@ class CopickPlugin(QWidget):
                         worker_interface.shutdown_workers(timeout_ms=1000)
             except Exception as e:
                 print(f"Warning: Could not cleanup info workers: {e}")
+
+        if CLI_AVAILABLE and hasattr(self, "cli_widget") and self.cli_widget is not None:
+            try:
+                self.cli_widget.cleanup()
+            except Exception as e:
+                print(f"Warning: Could not cleanup CLI widget: {e}")
 
     def get_copick_colormap(
         self,

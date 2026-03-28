@@ -197,6 +197,13 @@ class ConfigManager:
         self.parent_widget.save_segmentation_button.setEnabled(True)
         self.parent_widget.save_picks_button.setEnabled(True)
 
+        # Populate CLI tools if available
+        if hasattr(self.parent_widget, "cli_widget") and self.parent_widget.cli_widget is not None:
+            try:
+                self.parent_widget.cli_widget.populate_commands()
+            except Exception as e:
+                self.logger.warning(f"Failed to populate CLI tools: {e}")
+
     def _save_config(self) -> None:
         """Save the current config to disk."""
         if not self.parent_widget.root or not self.parent_widget.config_path:
