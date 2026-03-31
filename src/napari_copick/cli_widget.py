@@ -130,16 +130,24 @@ class NapariCLIContextInterface(AbstractCLIContextInterface):
         try:
             from qtpy.QtCore import Qt
 
-            self._plugin.tree_view.itemClicked.connect(
-                lambda item, col: callback(item.data(0, Qt.UserRole)),
-            )
+            def _wrapper(item, col):
+                callback(item.data(0, Qt.UserRole))
+
+            # Store mapping so we can disconnect later
+            if not hasattr(self, "_selection_slots"):
+                self._selection_slots = {}
+            self._selection_slots[callback] = _wrapper
+            self._plugin.tree_view.itemClicked.connect(_wrapper)
         except Exception:
             pass
 
     def disconnect_selection_changed(self, callback) -> None:
-        # Disconnecting lambdas is not straightforward; the form cleanup
-        # handles this by being destroyed, which disconnects all signals.
-        pass
+        try:
+            if hasattr(self, "_selection_slots") and callback in self._selection_slots:
+                wrapper = self._selection_slots.pop(callback)
+                self._plugin.tree_view.itemClicked.disconnect(wrapper)
+        except Exception:
+            pass
 
 
 class NapariCLIRefreshInterface(AbstractCLIRefreshInterface):
