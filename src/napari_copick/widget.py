@@ -135,6 +135,13 @@ class CopickPlugin(QWidget):
         self.tree_search.textChanged.connect(self.tree_view.filter_by_name)
         tree_layout.addWidget(self.tree_search)
 
+        # Hint label for tool discovery
+        if CLI_AVAILABLE:
+            tools_hint = QLabel("Right-click an item for available tools")
+            tools_hint.setAlignment(Qt.AlignCenter)
+            tools_hint.setStyleSheet("color: #888; font-size: 11px; padding: 2px 4px;")
+            tree_layout.addWidget(tools_hint)
+
         tree_layout.addWidget(self.tree_view)
 
         # Save buttons layout
@@ -355,6 +362,22 @@ class CopickPlugin(QWidget):
             if "Info View" in tab_text:
                 self.tab_widget.setCurrentIndex(i)
                 return
+
+    def switch_to_tools_view(self) -> None:
+        """Switch to tools view tab."""
+        for i in range(self.tab_widget.count()):
+            tab_text = self.tab_widget.tabText(i)
+            if "Tools" in tab_text:
+                self.tab_widget.setCurrentIndex(i)
+                return
+
+    def _on_tool_requested(self, schema, uri: str, run_name: str = "", object_type: str = "") -> None:
+        """Handle tool request from context menu."""
+        if CLI_AVAILABLE and hasattr(self, "cli_widget") and self.cli_widget is not None:
+            self.switch_to_tools_view()
+            browser = self.cli_widget._browser
+            if browser is not None:
+                browser.select_and_prefill(schema, uri, run_name=run_name, object_type=object_type)
 
     def _on_info_requested(self, run: copick.models.CopickRun) -> None:
         """Handle info request from gallery widget."""

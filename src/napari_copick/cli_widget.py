@@ -104,6 +104,43 @@ class NapariCLIContextInterface(AbstractCLIContextInterface):
             return sorted(session_ids)
         return []
 
+    def get_tomo_types(self) -> List[str]:
+        if self._plugin.root and self._plugin.root.runs:
+            tomo_types = set()
+            for run in self._plugin.root.runs[:5]:
+                for vs in run.voxel_spacings:
+                    for tomo in vs.tomograms:
+                        tomo_types.add(tomo.tomo_type)
+            return sorted(tomo_types)
+        return []
+
+    def get_selected_copick_object(self) -> Optional[Any]:
+        try:
+            from qtpy.QtCore import Qt
+
+            tree = self._plugin.tree_view
+            items = tree.selectedItems()
+            if items:
+                return items[0].data(0, Qt.UserRole)
+        except Exception:
+            pass
+        return None
+
+    def connect_selection_changed(self, callback) -> None:
+        try:
+            from qtpy.QtCore import Qt
+
+            self._plugin.tree_view.itemClicked.connect(
+                lambda item, col: callback(item.data(0, Qt.UserRole)),
+            )
+        except Exception:
+            pass
+
+    def disconnect_selection_changed(self, callback) -> None:
+        # Disconnecting lambdas is not straightforward; the form cleanup
+        # handles this by being destroyed, which disconnects all signals.
+        pass
+
 
 class NapariCLIRefreshInterface(AbstractCLIRefreshInterface):
     """Refreshes napari views after CLI command execution."""
