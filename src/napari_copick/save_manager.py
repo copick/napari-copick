@@ -33,7 +33,8 @@ class SaveManager:
 
         # Get available segmentation layers (Labels layers), excluding nninteractive interaction layers
         segmentation_layers = [
-            layer for layer in self.parent_widget.viewer.layers
+            layer
+            for layer in self.parent_widget.viewer.layers
             if isinstance(layer, Labels)
             and layer.data.ndim == 3
             and not layer.metadata.get("nninteractive_interaction_layer", False)
