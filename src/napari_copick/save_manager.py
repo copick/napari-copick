@@ -31,9 +31,12 @@ class SaveManager:
             self.parent_widget.info_label.setText("No configuration loaded. Please load a config first.")
             return
 
-        # Get available segmentation layers (Labels layers)
+        # Get available segmentation layers (Labels layers), excluding nninteractive interaction layers
         segmentation_layers = [
-            layer for layer in self.parent_widget.viewer.layers if isinstance(layer, Labels) and layer.data.ndim == 3
+            layer for layer in self.parent_widget.viewer.layers
+            if isinstance(layer, Labels)
+            and layer.data.ndim == 3
+            and not layer.metadata.get("nninteractive_interaction_layer", False)
         ]
 
         if not segmentation_layers:
