@@ -141,7 +141,7 @@ class DataLoader:
                     )
 
                     # TODO hardcoded default point size
-                    point_size = pickable_object.radius if pickable_object.radius else 50
+                    point_size = pickable_object.radius if pickable_object and pickable_object.radius else 50
                     points_layer = self.parent_widget.viewer.add_points(
                         points,
                         name=f"Picks: {pick_set.pickable_object_name} ({pick_set.user_id} | {pick_set.session_id})",

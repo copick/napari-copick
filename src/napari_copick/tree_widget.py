@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import copick
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor, QIcon, QPixmap
 from qtpy.QtWidgets import (
     QAction,
     QHBoxLayout,
@@ -44,6 +45,19 @@ class CopickTreeWidget(QTreeWidget):
         self.itemClicked.connect(self.handle_item_click)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.open_context_menu)
+
+    def _color_icon(self, object_name: str) -> Optional[QIcon]:
+        """Create a small colored square icon for a pickable object."""
+        root = self.parent_widget.root
+        if root is None:
+            return None
+        for obj in root.config.pickable_objects:
+            if obj.name == object_name:
+                rgba = obj.color or (100, 100, 100, 255)
+                pixmap = QPixmap(12, 12)
+                pixmap.fill(QColor(*rgba))
+                return QIcon(pixmap)
+        return None
 
     def populate_tree(self, root: copick.models.CopickRoot) -> None:
         """Populate the tree with runs from the copick root."""
@@ -173,6 +187,9 @@ class CopickTreeWidget(QTreeWidget):
             # Create tree structure: Object Type > "User | Session"
             for object_name in sorted(picks_by_object.keys()):
                 object_item = QTreeWidgetItem(picks_item, [object_name])
+                icon = self._color_icon(object_name)
+                if icon:
+                    object_item.setIcon(0, icon)
 
                 # Group by user|session and sort by user
                 user_session_picks = {}
@@ -268,6 +285,9 @@ class CopickTreeWidget(QTreeWidget):
             # Create tree structure: Object Type > "User | Session"
             for object_name in sorted(segmentations_by_object.keys()):
                 object_item = QTreeWidgetItem(segmentation_item, [object_name])
+                icon = self._color_icon(object_name)
+                if icon:
+                    object_item.setIcon(0, icon)
 
                 # Group by user|session and sort by user
                 user_session_segmentations = {}
@@ -388,18 +408,84 @@ class CopickTreeWidget(QTreeWidget):
             return
 
         data = item.data(0, Qt.UserRole)
+        if data is None:
+            return
 
-        # Only show delete option for picks and segmentations
+        menu = QMenu(self)
+
+        # Delete action for picks and segmentations
         if isinstance(data, (copick.models.CopickPicks, copick.models.CopickSegmentation)):
-            menu = QMenu(self)
-
-            # Delete action
-            delete_action = QAction("🗑️ Delete", self)
+            delete_action = QAction("\U0001f5d1\ufe0f Delete", self)
             delete_action.triggered.connect(lambda: self.delete_item(item, data))
             menu.addAction(delete_action)
 
-            # Show menu at cursor position
-            menu.exec_(self.mapToGlobal(position))
+        # Tools submenu (if CLI tools are available)
+        self._add_tools_submenu(menu, data)
+
+        if not menu.actions():
+            return
+
+        menu.exec_(self.mapToGlobal(position))
+
+    def _add_tools_submenu(self, menu: QMenu, data: Any) -> None:
+        """Add a 'Tools' submenu with applicable CLI commands for the object."""
+        try:
+            from copick.util.uri import serialize_copick_uri
+            from copick_shared_ui.core.click_schema import get_applicable_commands
+        except ImportError:
+            return
+
+        # Determine object type
+        cls_name = type(data).__name__
+        if "Picks" in cls_name:
+            obj_type = "picks"
+        elif "Mesh" in cls_name:
+            obj_type = "mesh"
+        elif "Segmentation" in cls_name:
+            obj_type = "segmentation"
+        elif "Tomogram" in cls_name:
+            obj_type = "tomogram"
+        else:
+            return
+
+        # Get schemas from the CLI widget
+        plugin = self.parent_widget
+        if not hasattr(plugin, "cli_widget") or plugin.cli_widget is None:
+            return
+        browser = plugin.cli_widget._browser
+        if browser is None:
+            return
+
+        schemas = browser.get_all_schemas()
+        applicable = get_applicable_commands(schemas, obj_type)
+        if not applicable:
+            return
+
+        # Serialize URI and extract run name
+        try:
+            uri = serialize_copick_uri(data)
+        except Exception:
+            uri = ""
+
+        run_name = ""
+        try:
+            if hasattr(data, "run") and data.run is not None:
+                run_name = data.run.name
+            elif hasattr(data, "voxel_spacing") and hasattr(data.voxel_spacing, "run"):
+                run_name = data.voxel_spacing.run.name
+        except Exception:
+            pass
+
+        tools_menu = menu.addMenu("\U0001f527 Tools")
+        for schema in applicable:
+            display = f"{schema.name} — {schema.short_help}" if schema.short_help else schema.name
+
+            def _make_handler(s, u, r, ot):
+                return lambda: plugin._on_tool_requested(s, u, r, ot)
+
+            action = QAction(display, self)
+            action.triggered.connect(_make_handler(schema, uri, run_name, obj_type))
+            tools_menu.addAction(action)
 
     def delete_item(self, item: QTreeWidgetItem, data) -> None:
         """Delete a specific picks or segmentation item."""

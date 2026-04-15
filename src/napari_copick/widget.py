@@ -42,6 +42,15 @@ except ImportError:
     INFO_AVAILABLE = False
     NapariCopickInfoWidget = None
 
+# Import the CLI tools widget
+try:
+    from napari_copick.cli_widget import NapariCopickCLIWidget
+
+    CLI_AVAILABLE = True
+except ImportError:
+    CLI_AVAILABLE = False
+    NapariCopickCLIWidget = None
+
 
 class CopickPlugin(QWidget):
     def __init__(
@@ -126,6 +135,13 @@ class CopickPlugin(QWidget):
         self.tree_search.textChanged.connect(self.tree_view.filter_by_name)
         tree_layout.addWidget(self.tree_search)
 
+        # Hint label for tool discovery
+        if CLI_AVAILABLE:
+            tools_hint = QLabel("Right-click an item for available tools")
+            tools_hint.setAlignment(Qt.AlignCenter)
+            tools_hint.setStyleSheet("color: #888; font-size: 11px; padding: 2px 4px;")
+            tree_layout.addWidget(tools_hint)
+
         tree_layout.addWidget(self.tree_view)
 
         # Save buttons layout
@@ -179,6 +195,19 @@ class CopickPlugin(QWidget):
             fallback_label.setStyleSheet("color: #888; font-size: 14px; padding: 40px;")
             fallback_layout.addWidget(fallback_label)
             self.tab_widget.addTab(info_fallback, "📋 Info View")
+
+        # CLI tools tab
+        if CLI_AVAILABLE:
+            self.cli_widget = NapariCopickCLIWidget(self.viewer, self)
+            self.tab_widget.addTab(self.cli_widget, "\U0001f527 Tools")
+        else:
+            cli_fallback = QWidget()
+            fallback_layout = QVBoxLayout(cli_fallback)
+            fallback_label = QLabel("Tools not available\n\nThe copick-shared-ui package is required.")
+            fallback_label.setAlignment(Qt.AlignCenter)
+            fallback_label.setStyleSheet("color: #888; font-size: 14px; padding: 40px;")
+            fallback_layout.addWidget(fallback_label)
+            self.tab_widget.addTab(cli_fallback, "\U0001f527 Tools")
 
         layout.addWidget(self.tab_widget)
 
@@ -287,6 +316,12 @@ class CopickPlugin(QWidget):
             except Exception as e:
                 print(f"Warning: Could not cleanup info workers: {e}")
 
+        if CLI_AVAILABLE and hasattr(self, "cli_widget") and self.cli_widget is not None:
+            try:
+                self.cli_widget.cleanup()
+            except Exception as e:
+                print(f"Warning: Could not cleanup CLI widget: {e}")
+
     def get_copick_colormap(
         self,
         pickable_objects: Optional[List[copick.models.PickableObject]] = None,
@@ -327,6 +362,22 @@ class CopickPlugin(QWidget):
             if "Info View" in tab_text:
                 self.tab_widget.setCurrentIndex(i)
                 return
+
+    def switch_to_tools_view(self) -> None:
+        """Switch to tools view tab."""
+        for i in range(self.tab_widget.count()):
+            tab_text = self.tab_widget.tabText(i)
+            if "Tools" in tab_text:
+                self.tab_widget.setCurrentIndex(i)
+                return
+
+    def _on_tool_requested(self, schema, uri: str, run_name: str = "", object_type: str = "") -> None:
+        """Handle tool request from context menu."""
+        if CLI_AVAILABLE and hasattr(self, "cli_widget") and self.cli_widget is not None:
+            self.switch_to_tools_view()
+            browser = self.cli_widget._browser
+            if browser is not None:
+                browser.select_and_prefill(schema, uri, run_name=run_name, object_type=object_type)
 
     def _on_info_requested(self, run: copick.models.CopickRun) -> None:
         """Handle info request from gallery widget."""
