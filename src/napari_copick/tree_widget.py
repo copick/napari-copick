@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import copick
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QColor, QIcon, QPixmap
 from qtpy.QtWidgets import (
     QAction,
     QHBoxLayout,
@@ -44,6 +45,19 @@ class CopickTreeWidget(QTreeWidget):
         self.itemClicked.connect(self.handle_item_click)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.open_context_menu)
+
+    def _color_icon(self, object_name: str) -> Optional[QIcon]:
+        """Create a small colored square icon for a pickable object."""
+        root = self.parent_widget.root
+        if root is None:
+            return None
+        for obj in root.config.pickable_objects:
+            if obj.name == object_name:
+                rgba = obj.color or (100, 100, 100, 255)
+                pixmap = QPixmap(12, 12)
+                pixmap.fill(QColor(*rgba))
+                return QIcon(pixmap)
+        return None
 
     def populate_tree(self, root: copick.models.CopickRoot) -> None:
         """Populate the tree with runs from the copick root."""
@@ -173,6 +187,9 @@ class CopickTreeWidget(QTreeWidget):
             # Create tree structure: Object Type > "User | Session"
             for object_name in sorted(picks_by_object.keys()):
                 object_item = QTreeWidgetItem(picks_item, [object_name])
+                icon = self._color_icon(object_name)
+                if icon:
+                    object_item.setIcon(0, icon)
 
                 # Group by user|session and sort by user
                 user_session_picks = {}
@@ -268,6 +285,9 @@ class CopickTreeWidget(QTreeWidget):
             # Create tree structure: Object Type > "User | Session"
             for object_name in sorted(segmentations_by_object.keys()):
                 object_item = QTreeWidgetItem(segmentation_item, [object_name])
+                icon = self._color_icon(object_name)
+                if icon:
+                    object_item.setIcon(0, icon)
 
                 # Group by user|session and sort by user
                 user_session_segmentations = {}

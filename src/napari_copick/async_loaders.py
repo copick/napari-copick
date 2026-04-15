@@ -126,6 +126,18 @@ def expand_run_worker(run: copick.models.CopickRun):
         # Get voxel spacings (usually fast)
         voxel_spacings = list(run.voxel_spacings)
 
+        # Include voxel spacings implied by segmentations (no tomogram at that size)
+        segmentations = run.segmentations
+        existing_vs = {vs.voxel_size for vs in voxel_spacings}
+        seg_vs = {s.voxel_size for s in segmentations}
+        missing_vs = seg_vs - existing_vs
+        if missing_vs:
+            clz, meta_clz = run._voxel_spacing_factory()
+            for size in sorted(missing_vs):
+                vm = meta_clz(voxel_size=size)
+                vs = clz(run=run, meta=vm)
+                voxel_spacings.append(vs)
+
         yield f"Loading picks for {run.meta.name}..."
 
         # Get picks (can be slow)
