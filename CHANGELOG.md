@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.7.0...napari-copick-v1.8.0) (2026-04-15)
+
+
+### ✨ Features
+
+* Use auto-generated UI for copick CLI tools ([#34](https://github.com/copick/napari-copick/issues/34)) ([970bf2a](https://github.com/copick/napari-copick/commit/970bf2a741e4e5a6817aaa57b9b5a24f23bce168))
+
+
+### 🐞 Bug Fixes
+
+* Improve save manager ([#35](https://github.com/copick/napari-copick/issues/35)) ([1a646cc](https://github.com/copick/napari-copick/commit/1a646cc45fe52440628037e1bc05cb8b646c71a5))
+
 ## [1.7.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.6.0...napari-copick-v1.7.0) (2026-03-27)
 
 
