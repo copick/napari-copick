@@ -61,7 +61,8 @@ class NapariCopickGalleryWidget(QWidget):
         header_layout = QHBoxLayout()
 
         # Back to tree button
-        self.back_button = QPushButton("← Back to Tree View")
+        self.back_button = QPushButton("← Tree")
+        self.back_button.setToolTip("Back to the tree view")
         self.back_button.clicked.connect(self._on_back_clicked)
         header_layout.addWidget(self.back_button)
 
