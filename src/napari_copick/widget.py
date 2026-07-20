@@ -100,19 +100,21 @@ class CopickPlugin(QWidget):
         load_options_layout = QHBoxLayout()
 
         # Config file button
-        self.load_config_button = QPushButton("Load Config File")
+        self.load_config_button = QPushButton("Load Config")
+        self.load_config_button.setToolTip("Load a copick configuration file")
         self.load_config_button.clicked.connect(self.config_manager.open_file_dialog)
         load_options_layout.addWidget(self.load_config_button)
 
         # Dataset IDs button
-        self.load_dataset_button = QPushButton("Load from Dataset IDs")
+        self.load_dataset_button = QPushButton("Dataset IDs")
+        self.load_dataset_button.setToolTip("Load from CZ cryoET Data Portal dataset IDs")
         self.load_dataset_button.clicked.connect(self.config_manager.open_dataset_dialog)
         load_options_layout.addWidget(self.load_dataset_button)
 
         layout.addLayout(load_options_layout)
 
         # Edit Object Types button
-        self.edit_objects_button = QPushButton("✏️ Edit Object Types")
+        self.edit_objects_button = QPushButton("✏️ Edit Objects")
         self.edit_objects_button.clicked.connect(self.config_manager.open_edit_objects_dialog)
         self.edit_objects_button.setEnabled(False)  # Disabled until config is loaded
         self.edit_objects_button.setToolTip("Edit or add new object types in the configuration")
@@ -120,6 +122,10 @@ class CopickPlugin(QWidget):
 
         # Create tab widget for tree and gallery views
         self.tab_widget = QTabWidget()
+        # Let the tab bar elide/scroll instead of pinning a wide minimum width
+        # on small screens.
+        self.tab_widget.tabBar().setElideMode(Qt.ElideRight)
+        self.tab_widget.setUsesScrollButtons(True)
 
         # Tree view tab
         tree_tab = QWidget()
@@ -148,7 +154,7 @@ class CopickPlugin(QWidget):
         save_buttons_layout = QHBoxLayout()
 
         # Save segmentation button
-        self.save_segmentation_button = QPushButton("💾 Save Segmentation")
+        self.save_segmentation_button = QPushButton("💾 Save Seg")
         self.save_segmentation_button.clicked.connect(self.save_manager.open_save_segmentation_dialog)
         self.save_segmentation_button.setEnabled(False)  # Disabled until config is loaded
         self.save_segmentation_button.setToolTip("Save a segmentation layer to copick")
@@ -213,11 +219,17 @@ class CopickPlugin(QWidget):
 
         # Resolution level selector
         resolution_layout = QHBoxLayout()
-        resolution_label = QLabel("Image Resolution:")
+        resolution_label = QLabel("Resolution:")
         self.resolution_combo = QComboBox()
-        self.resolution_combo.addItems(
-            ["0 - Highest (Full Resolution)", "1 - Medium (Binned by 2)", "2 - Lowest (Binned by 4)"],
-        )
+        # Short labels keep the collapsed combo narrow; full descriptions are in
+        # per-item tooltips. Selection is read by index, so text is display-only.
+        self.resolution_combo.addItems(["0 - Full", "1 - Bin 2", "2 - Bin 4"])
+        self.resolution_combo.setItemData(0, "0 - Highest (Full Resolution)", Qt.ToolTipRole)
+        self.resolution_combo.setItemData(1, "1 - Medium (Binned by 2)", Qt.ToolTipRole)
+        self.resolution_combo.setItemData(2, "2 - Lowest (Binned by 4)", Qt.ToolTipRole)
+        self.resolution_combo.setToolTip("Resolution / binning level used to load tomograms")
+        self.resolution_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.resolution_combo.setMinimumContentsLength(6)
         self.resolution_combo.setCurrentIndex(1)  # Default to medium resolution
         resolution_layout.addWidget(resolution_label)
         resolution_layout.addWidget(self.resolution_combo)
