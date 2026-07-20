@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.8.0...napari-copick-v1.9.0) (2026-07-20)
+
+
+### ✨ Features
+
+* Allow napari-copick to shrink beyond its current minimum width. ([#37](https://github.com/copick/napari-copick/issues/37)) ([dd5f41c](https://github.com/copick/napari-copick/commit/dd5f41c7dd5b0d41d2e273e44a25b7215d78d8ba))
+
 ## [1.8.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.7.0...napari-copick-v1.8.0) (2026-04-15)
 
 
