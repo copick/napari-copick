@@ -5,7 +5,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import copick
 import numpy as np
-import zarr
+
+from napari_copick.storage import open_multiscale_level
 
 logger = logging.getLogger(__name__)
 
@@ -137,16 +138,8 @@ def get_tomogram_shape_at_level_0(
             raise ValueError("No tomograms found at this voxel spacing")
 
         first_tomogram = tomograms[0]
-        zarr_group = zarr.open(first_tomogram.zarr(), "r")
-
-        # Get shape from the highest resolution level (level 0)
-        if "0" in zarr_group:
-            return zarr_group["0"].shape
-        else:
-            # Fallback to first available level
-            scale_levels = [key for key in zarr_group.keys() if key.isdigit()]  # noqa: SIM118
-            scale_levels.sort(key=int)
-            return zarr_group[scale_levels[0]].shape
+        level = open_multiscale_level(first_tomogram, 0)
+        return tuple(level.array.shape)
 
     except Exception as e:
         logger.exception(f"Error getting tomogram shape: {str(e)}")
