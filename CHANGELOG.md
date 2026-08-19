@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.0-alpha.1](https://github.com/copick/napari-copick/compare/napari-copick-v1.9.0...napari-copick-v2.0.0-alpha.1) (2026-08-19)
+
+
+### ✨ Features
+
+* support OME-Zarr 0.5 and Zarr v3 ([#45](https://github.com/copick/napari-copick/issues/45)) ([cba9715](https://github.com/copick/napari-copick/commit/cba9715c00de66c5aa471d3ce192fc479a3d6ea7))
+
+
+### 🧹 Miscellaneous Chores
+
+* bootstrap 2.0.0 alpha release ([2df36c3](https://github.com/copick/napari-copick/commit/2df36c353a6b34028eee58ce3b575dff6a6184fd))
+
+
+### ⚙ Continuous Integration
+
+* configure v2 alpha releases ([4492779](https://github.com/copick/napari-copick/commit/4492779eaa9917301dacd1af3a3d5a9dcd4ca487))
+
 ## [1.9.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.8.0...napari-copick-v1.9.0) (2026-07-20)
 
 
