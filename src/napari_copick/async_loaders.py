@@ -6,45 +6,25 @@ from typing import Any, Dict
 
 import copick
 import numpy as np
-import zarr
 from napari.qt.threading import thread_worker
+
+from napari_copick.storage import open_multiscale_level, spatial_scale
 
 
 @thread_worker
 def load_tomogram_worker(tomogram: copick.models.CopickTomogram, resolution_level: int = 0):
     """Load tomogram data in background thread using napari's threading system."""
     try:
-        zarr_path = tomogram.zarr()
-
         yield f"Opening zarr group for {tomogram.meta.tomo_type}..."
-        zarr_group = zarr.open(zarr_path, "r")
-
-        # Determine the number of scale levels
-        scale_levels = [key for key in zarr_group.keys() if key.isdigit()]  # noqa: SIM118
-        scale_levels.sort(key=int)
-
-        if not scale_levels:
-            raise ValueError(f"No scale levels found in tomogram: {tomogram.meta.tomo_type}")
-
-        # Validate resolution level
-        if resolution_level >= len(scale_levels):
-            resolution_level = len(scale_levels) - 1
-
-        # Load only the selected resolution level
-        selected_level = scale_levels[resolution_level]
+        level = open_multiscale_level(tomogram, resolution_level)
+        resolution_level = level.level
 
         yield f"Loading resolution level {resolution_level}..."
-        array = zarr_group[selected_level]
-
-        # Calculate voxel size from metadata, adjusting for resolution level
-        base_voxel_size = tomogram.voxel_spacing.meta.voxel_size
-        # Each resolution level is typically 2x binned
-        scale_factor = 2**resolution_level
-        voxel_size = [base_voxel_size * scale_factor] * 3
+        voxel_size = spatial_scale(level, tomogram.voxel_spacing.meta.voxel_size)
 
         # Actually load the data (not lazy!)
         yield "Loading image data into memory..."
-        loaded_data = np.array(array)
+        loaded_data = np.array(level.array)
 
         # Return the final result with pre-loaded data
         return {
@@ -63,45 +43,16 @@ def load_tomogram_worker(tomogram: copick.models.CopickTomogram, resolution_leve
 def load_segmentation_worker(segmentation: copick.models.CopickSegmentation, resolution_level: int = 0):
     """Load segmentation data in background thread using napari's threading system."""
     try:
-        zarr_path = segmentation.zarr()
-
         yield f"Opening zarr group for {segmentation.meta.name}..."
-        zarr_group = zarr.open(zarr_path, "r+")
-
-        # Try to find data in zarr group
-        if "data" in zarr_group:
-            data_key = "data"
-        elif "0" in zarr_group:
-            # Handle multiscale segmentations
-            scale_levels = [key for key in zarr_group.keys() if key.isdigit()]  # noqa: SIM118
-            scale_levels.sort(key=int)
-
-            # Validate resolution level for multiscale
-            if resolution_level >= len(scale_levels):
-                resolution_level = len(scale_levels) - 1
-
-            data_key = scale_levels[resolution_level]
-        else:
-            # Fallback to first available key
-            data_key = list(zarr_group.keys())[0]
+        level = open_multiscale_level(segmentation, resolution_level)
+        resolution_level = level.level
 
         yield f"Loading segmentation data from level {resolution_level}..."
-        array = zarr_group[data_key]
-
-        # Calculate voxel size from metadata, adjusting for resolution level if multiscale
-        base_voxel_size = segmentation.meta.voxel_size
-        if data_key.isdigit():
-            # Multiscale segmentation
-            scale_factor = 2**resolution_level
-            voxel_size = [base_voxel_size * scale_factor] * 3
-        else:
-            # Single scale segmentation
-            voxel_size = [base_voxel_size] * 3
-            resolution_level = 0  # Reset to 0 for display
+        voxel_size = spatial_scale(level, segmentation.meta.voxel_size)
 
         # Actually load the data (not lazy!)
         yield "Loading segmentation data into memory..."
-        loaded_data = np.array(array)
+        loaded_data = np.array(level.array)
 
         # Return the final result with pre-loaded data
         return {

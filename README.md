@@ -1,10 +1,10 @@
 # napari-copick
 
-[![License MIT](https://img.shields.io/pypi/l/napari-copick.svg?color=green)](https://github.com/kephale/napari-copick/raw/main/LICENSE)
+[![License MIT](https://img.shields.io/pypi/l/napari-copick.svg?color=green)](https://github.com/copick/napari-copick/raw/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/napari-copick.svg?color=green)](https://pypi.org/project/napari-copick)
 [![Python Version](https://img.shields.io/pypi/pyversions/napari-copick.svg?color=green)](https://python.org)
-[![tests](https://github.com/kephale/napari-copick/workflows/tests/badge.svg)](https://github.com/kephale/napari-copick/actions)
-[![codecov](https://codecov.io/gh/kephale/napari-copick/branch/main/graph/badge.svg)](https://codecov.io/gh/kephale/napari-copick)
+[![tests](https://github.com/copick/napari-copick/workflows/tests/badge.svg)](https://github.com/copick/napari-copick/actions)
+[![codecov](https://codecov.io/gh/copick/napari-copick/branch/main/graph/badge.svg)](https://codecov.io/gh/copick/napari-copick)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-copick)](https://napari-hub.org/plugins/napari-copick)
 
 A plugin for collaborative annotation in cryoET using copick
@@ -29,9 +29,13 @@ You can install `napari-copick` via [pip]:
 
     pip install napari-copick
 
+Copick 2 / OME-Zarr 0.5 prereleases use the alpha channel:
+
+    pip install --pre napari-copick
+
 To install latest development version:
 
-    pip install git+https://github.com/copick/napari-copick.git
+    pip install git+https://github.com/copick/napari-copick.git@v2.0
 
 ## Usage
 
@@ -60,14 +64,19 @@ After loading, you'll see a hierarchical tree of the project structure that you 
 
 ### Tomogram Handling
 
-napari-copick now handles multiscale zarr arrays directly:
+napari-copick handles multiscale OME-Zarr arrays directly:
 
-- Automatically detects and loads all available resolution levels
-- Creates a proper multiscale image stack using napari's native multiscale API
-- Uses dask for efficient lazy loading of large tomogram data
-- Applies appropriate scaling factors based on the voxel size metadata
+- Selects resolution levels from OME multiscale metadata, including non-numeric dataset paths
+- Reads both legacy OME-Zarr 0.4 / Zarr v2 and OME-Zarr 0.5 / Zarr v3 stores
+- Loads the selected resolution level into memory before adding it to napari
+- Applies the selected dataset's OME coordinate transformation as the layer scale
 
 This direct zarr handling provides better performance and more flexibility compared to relying on external plugins.
+
+Volume reads use the Zarr store supplied by copick and require OME multiscales metadata. Stores written by copick 1.x
+(OME-Zarr 0.4 / Zarr v2) and copick 2.x (OME-Zarr 0.5 / Zarr v3) are supported. Third-party stores that expose only
+a root `data` array without OME multiscales metadata are intentionally unsupported; napari-copick does not infer a
+dataset path from array names or root-key order. Storage backend access and retry behavior remain owned by copick.
 
 ## Contributing
 
@@ -89,7 +98,7 @@ If you encounter any problems, please [file an issue] along with a detailed desc
 [MIT]: http://opensource.org/licenses/MIT
 [cookiecutter-napari-plugin]: https://github.com/napari/cookiecutter-napari-plugin
 
-[file an issue]: https://github.com/kephale/napari-copick/issues
+[file an issue]: https://github.com/copick/napari-copick/issues
 
 [napari]: https://github.com/napari/napari
 [tox]: https://tox.readthedocs.io/en/latest/
