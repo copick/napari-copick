@@ -49,10 +49,14 @@ def open_multiscale_level(entity: Any, requested_level: int) -> MultiscaleLevel:
     except (KeyError, TypeError) as error:
         raise ValueError(f"{entity_name}: OME-Zarr multiscales metadata is missing or invalid") from error
 
+    if not isinstance(multiscales, Sequence) or isinstance(multiscales, (str, bytes)):
+        raise ValueError(f"{entity_name}: OME-Zarr multiscales metadata is invalid")
     if not multiscales:
         raise ValueError(f"{entity_name}: OME-Zarr multiscales metadata contains no entries")
 
     multiscale = multiscales[0]
+    if not isinstance(multiscale, Mapping):
+        raise ValueError(f"{entity_name}: OME-Zarr multiscale entry is invalid")
     datasets = multiscale.get("datasets")
     if not isinstance(datasets, Sequence) or isinstance(datasets, (str, bytes)) or not datasets:
         raise ValueError(f"{entity_name}: OME-Zarr multiscale contains no datasets")
@@ -73,6 +77,8 @@ def open_multiscale_level(entity: Any, requested_level: int) -> MultiscaleLevel:
             f"{entity_name}: requested level {requested_level} resolved to effective level "
             f"{effective_level}, but declared dataset path {path!r} does not exist",
         ) from error
+    if not isinstance(array, zarr.Array):
+        raise ValueError(f"{entity_name}: declared dataset path {path!r} is not an array")
 
     return MultiscaleLevel(
         array=array,

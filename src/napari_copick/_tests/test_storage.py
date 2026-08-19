@@ -57,7 +57,9 @@ def test_opens_store_read_only(make_ome_store, fake_entity, monkeypatch):
     ("metadata", "message"),
     [
         ({}, "metadata is missing or invalid"),
+        ({"ome": {"multiscales": {"datasets": []}}}, "multiscales metadata is invalid"),
         ({"ome": {"multiscales": []}}, "contains no entries"),
+        ({"ome": {"multiscales": ["invalid"]}}, "multiscale entry is invalid"),
         ({"ome": {"multiscales": [{"axes": [], "datasets": []}]}}, "contains no datasets"),
     ],
 )
@@ -91,6 +93,29 @@ def test_reports_missing_declared_path(make_ome_store, fake_entity):
 
     with pytest.raises(ValueError, match="declared dataset path 'missing' does not exist"):
         open_multiscale_level(fake_entity(store), 2)
+
+
+def test_rejects_declared_path_that_is_a_group(fake_entity):
+    store = MemoryStore()
+    group = zarr.group(store=store, zarr_format=3)
+    group.create_group("not-an-array")
+    group.attrs["ome"] = {
+        "version": "0.5",
+        "multiscales": [
+            {
+                "axes": [{"name": name, "type": "space"} for name in ("z", "y", "x")],
+                "datasets": [
+                    {
+                        "path": "not-an-array",
+                        "coordinateTransformations": [{"type": "scale", "scale": [1, 1, 1]}],
+                    },
+                ],
+            },
+        ],
+    }
+
+    with pytest.raises(ValueError, match="declared dataset path 'not-an-array' is not an array"):
+        open_multiscale_level(fake_entity(store), 0)
 
 
 @pytest.mark.parametrize(

@@ -82,14 +82,22 @@ def test_synchronous_save_scales_and_delegates(make_ome_store, fake_entity):
 
 
 @pytest.mark.parametrize(
-    ("mode", "expected_count", "expected_values"),
+    ("mode", "expected_values", "expected_session_ids", "expected_multilabel"),
     [
-        ({}, 1, {0, 2, 5}),
-        ({"convert_to_binary": True}, 1, {0, 1}),
-        ({"split_instances": True}, 2, {0, 1}),
+        ({}, {0, 2, 5}, ["session"], False),
+        ({"is_multilabel": True}, {0, 2, 5}, ["session"], True),
+        ({"convert_to_binary": True}, {0, 1}, ["session"], False),
+        ({"split_instances": True}, {0, 1}, ["session-0", "session-1"], False),
     ],
 )
-def test_async_save_modes_delegate_expected_data(make_ome_store, fake_entity, mode, expected_count, expected_values):
+def test_async_save_modes_delegate_expected_data(
+    make_ome_store,
+    fake_entity,
+    mode,
+    expected_values,
+    expected_session_ids,
+    expected_multilabel,
+):
     store, _ = make_ome_store(paths=("full",), scales=((1.0, 1.0, 1.0),))
     run = RecordingRun()
     voxel_spacing = SimpleNamespace(voxel_size=4.0, tomograms=[fake_entity(store)])
@@ -103,13 +111,24 @@ def test_async_save_modes_delegate_expected_data(make_ome_store, fake_entity, mo
         "session_id": "session",
         "user_id": "user",
         "segmentation_name": "objects",
+        "exist_ok": True,
         **mode,
     }
 
     _, result = exhaust(save_segmentation_worker.__wrapped__(params))
 
     assert result["success"] is True
-    assert len(run.created) == expected_count
+    assert [kwargs for kwargs, _ in run.created] == [
+        {
+            "voxel_size": 4.0,
+            "name": "objects",
+            "session_id": session_id,
+            "user_id": "user",
+            "is_multilabel": expected_multilabel,
+            "exist_ok": True,
+        }
+        for session_id in expected_session_ids
+    ]
     for _, segmentation in run.created:
         data, levels, dtype = segmentation.calls[0]
         assert set(np.unique(data)) <= expected_values

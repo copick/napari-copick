@@ -73,6 +73,11 @@ napari-copick handles multiscale OME-Zarr arrays directly:
 
 This direct zarr handling provides better performance and more flexibility compared to relying on external plugins.
 
+Volume reads use the Zarr store supplied by copick and require OME multiscales metadata. Stores written by copick 1.x
+(OME-Zarr 0.4 / Zarr v2) and copick 2.x (OME-Zarr 0.5 / Zarr v3) are supported. Third-party stores that expose only
+a root `data` array without OME multiscales metadata are intentionally unsupported; napari-copick does not infer a
+dataset path from array names or root-key order. Storage backend access and retry behavior remain owned by copick.
+
 ## Contributing
 
 Contributions are very welcome. Tests can be run with [tox], please ensure
