@@ -9,6 +9,14 @@ from napari.utils import DirectLabelColormap
 from qtpy.QtWidgets import QTreeWidgetItem
 
 from napari_copick.async_loaders import load_segmentation_worker, load_tomogram_worker
+from napari_copick.pick_layers import (
+    FEATURE_DEFAULTS,
+    TRANSFORMS_KEY,
+    instance_colors,
+    is_filament,
+    picks_to_layer_data,
+    reset_added_features,
+)
 
 
 class DataLoader:
@@ -114,7 +122,8 @@ class DataLoader:
         if parent_run is not None:
             if pick_set:
                 if pick_set.points:
-                    points = [(p.location.z, p.location.y, p.location.x) for p in pick_set.points]
+                    # Points are drawn at the particle centre, location + t.
+                    points, features, transforms = picks_to_layer_data(pick_set.points)
 
                     # Find the matching pickable object to get the correct color
                     pickable_object = None
@@ -139,6 +148,9 @@ class DataLoader:
                         ),
                         (len(points), 1),
                     )
+                    if pickable_object is not None and is_filament(pickable_object):
+                        # One colour per filament, so neighbouring filaments can be told apart.
+                        colors = instance_colors(features["instance_id"], colors[0])
 
                     # TODO hardcoded default point size
                     point_size = pickable_object.radius if pickable_object and pickable_object.radius else 50
@@ -148,8 +160,12 @@ class DataLoader:
                         size=point_size,
                         face_color=colors,
                         out_of_slice_display=True,
+                        features=features,
+                        feature_defaults=FEATURE_DEFAULTS,
                     )
                     points_layer.size = [200] * len(points_layer.size)  # Set a default size for all points
+                    # Points added later are new picks, whatever point was selected when they were placed.
+                    points_layer.events.data.connect(lambda event: reset_added_features(points_layer, event))
 
                     # Store copick metadata in the layer for later use in save dialog
                     points_layer.metadata["copick_run"] = parent_run
@@ -157,6 +173,7 @@ class DataLoader:
                     points_layer.metadata["copick_source_object_name"] = pick_set.pickable_object_name
                     points_layer.metadata["copick_session_id"] = pick_set.session_id
                     points_layer.metadata["copick_user_id"] = pick_set.user_id
+                    points_layer.metadata[TRANSFORMS_KEY] = transforms
 
                     self.parent_widget.info_label.setText(f"Loaded Picks: {pick_set.pickable_object_name}")
                 else:
