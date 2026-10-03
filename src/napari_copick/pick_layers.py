@@ -12,11 +12,11 @@ import numpy as np
 import pandas as pd
 from copick.models import CopickLocation, CopickPoint
 
+# Features of a point placed in napari: unassigned, full score, and no copick point it came from.
 FEATURE_DEFAULTS = {"instance_id": 0, "score": 1.0, "copick_index": -1}
-"""Features of a point placed in napari: unassigned, full score, and no copick point it came from."""
 
+# Layer metadata key of the loaded points' (N, 4, 4) transforms; ``copick_index`` indexes into it.
 TRANSFORMS_KEY = "copick_transforms"
-"""Layer metadata key of the loaded points' (N, 4, 4) transforms; ``copick_index`` indexes into it."""
 
 
 def picks_to_layer_data(points: Optional[Sequence[CopickPoint]]) -> Tuple[np.ndarray, pd.DataFrame, np.ndarray]:
