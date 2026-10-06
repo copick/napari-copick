@@ -93,13 +93,8 @@ class ConfigManager:
                     # Update any UI elements that depend on the object types
                     self.parent_widget.tree_expansion_manager.populate_tree(preserve_expansion=True)
 
-                    # Update any loaded segmentation layers with new colormap
-                    for layer in self.parent_widget.viewer.layers:
-                        if hasattr(layer, "colormap") and "Segmentation:" in layer.name:
-                            layer.colormap = DirectLabelColormap(
-                                color_dict=self.parent_widget.get_copick_colormap(),
-                            )
-                            layer.painting_labels = [obj.label for obj in updated_objects]
+                    # Update loaded segmentation layers with the new object colours, by segmentation type
+                    self._refresh_segmentation_colormaps(updated_objects)
 
                     self.parent_widget.info_label.setText(
                         f"Updated and saved {len(updated_objects)} object types in configuration",
@@ -110,6 +105,28 @@ class ConfigManager:
                     self.logger.info("No changes made to object types")
         except Exception as e:
             self.parent_widget.info_label.setText(f"Error opening EditObjectTypesDialog: {str(e)}")
+
+    def _refresh_segmentation_colormaps(self, objects) -> None:
+        """Re-colour loaded segmentation layers after an object edit. Binary layers get their object's colour,
+        multilabel and panoptic label layers the full colormap; instance and segment layers keep instance colours."""
+        import numpy as np
+
+        by_name = {obj.name: obj for obj in objects}
+        for layer in self.parent_widget.viewer.layers:
+            meta = getattr(layer, "metadata", {}) or {}
+            if "copick_segmentation" not in meta or meta.get("copick_kind") == "panoptic_segments":
+                continue
+            seg_type = meta.get("copick_segmentation_type")
+            if seg_type is None:
+                seg_type = "multilabel" if meta["copick_segmentation"].is_multilabel else "binary"
+            if seg_type in ("multilabel", "panoptic"):
+                layer.colormap = DirectLabelColormap(color_dict=self.parent_widget.get_copick_colormap(objects))
+                if seg_type == "multilabel":
+                    layer.painting_labels = [obj.label for obj in objects]
+            elif seg_type == "binary":
+                obj = by_name.get(meta.get("copick_source_object_name"))
+                color = np.array(obj.color) / 255.0 if obj is not None and obj.color else np.array([1, 1, 1, 1])
+                layer.colormap = DirectLabelColormap(color_dict={0: np.array([0, 0, 0, 0]), 1: color, None: color})
 
     def load_config(self, config_path: Optional[str] = None) -> None:
         """Load configuration from a file.
@@ -196,6 +213,7 @@ class ConfigManager:
         self.parent_widget.edit_objects_button.setEnabled(True)
         self.parent_widget.save_segmentation_button.setEnabled(True)
         self.parent_widget.save_picks_button.setEnabled(True)
+        self.parent_widget.save_filaments_button.setEnabled(True)
 
         # Populate CLI tools if available
         if hasattr(self.parent_widget, "cli_widget") and self.parent_widget.cli_widget is not None:
