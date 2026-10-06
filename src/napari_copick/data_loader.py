@@ -27,6 +27,7 @@ from napari_copick.pick_layers import (
     picks_to_layer_data,
     reset_added_features,
 )
+from napari_copick.slicing import points_slicing, show_points_within, single_slice
 
 
 class DataLoader:
@@ -174,10 +175,11 @@ class DataLoader:
                         name=f"Picks: {pick_set.pickable_object_name} ({pick_set.user_id} | {pick_set.session_id})",
                         size=point_size,
                         face_color=colors,
-                        out_of_slice_display=True,
                         features=features,
                         feature_defaults=FEATURE_DEFAULTS,
+                        **points_slicing(near=True),
                     )
+                    show_points_within(self.parent_widget.viewer, point_size)
                     # Points added later are new picks, whatever point was selected when they were placed.
                     points_layer.events.data.connect(lambda event: reset_added_features(points_layer, event))
 
@@ -282,6 +284,7 @@ class DataLoader:
                 name=name,
             )
             layer.reset_contrast_limits()
+            single_slice(layer)  # thick slices (for points) don't average the tomogram
 
             # Store copick metadata in the layer
             layer.metadata["copick_run"] = tomogram.voxel_spacing.run
