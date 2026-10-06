@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.9.0...napari-copick-v1.10.0) (2026-10-06)
+
+
+### ✨ Features
+
+* filaments, instance and panoptic segmentations, annotation tools ([#49](https://github.com/copick/napari-copick/issues/49)) ([427f127](https://github.com/copick/napari-copick/commit/427f127ad8a066f41e8d6f1c23fa3e6b6f47fad0))
+
+
+### 🐞 Bug Fixes
+
+* keep pick ids, scores and orientations on save ([#47](https://github.com/copick/napari-copick/issues/47)) ([9ada249](https://github.com/copick/napari-copick/commit/9ada24964ff8d41350c37f2a13fa8170be3b1943))
+
 ## [1.9.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.8.0...napari-copick-v1.9.0) (2026-07-20)
 
 
