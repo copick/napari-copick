@@ -42,6 +42,16 @@ except ImportError:
     INFO_AVAILABLE = False
     NapariCopickInfoWidget = None
 
+# Import the annotation (tracing / instance editing) widget
+try:
+    from napari_copick.annotate_widget import AnnotateWidget
+
+    ANNOTATE_AVAILABLE = True
+except ImportError as _annotate_error:  # copick-shared-ui without the instance helpers
+    logging.getLogger("CopickPlugin").warning(f"Annotate tab not available: {_annotate_error}")
+    ANNOTATE_AVAILABLE = False
+    AnnotateWidget = None
+
 # Import the CLI tools widget
 try:
     from napari_copick.cli_widget import NapariCopickCLIWidget
@@ -167,6 +177,14 @@ class CopickPlugin(QWidget):
         self.save_picks_button.setToolTip("Save a points layer to copick")
         save_buttons_layout.addWidget(self.save_picks_button)
 
+        # Save filaments button
+        self.save_filaments_button = QPushButton("〰 Save Filaments")
+        self.save_filaments_button.clicked.connect(lambda: self.save_manager.open_save_filaments_dialog())
+        self.save_filaments_button.setEnabled(False)  # Disabled until config is loaded
+        self.save_filaments_button.setToolTip("Save traced filaments to copick")
+        self.save_filaments_button.setVisible(ANNOTATE_AVAILABLE)
+        save_buttons_layout.addWidget(self.save_filaments_button)
+
         tree_layout.addLayout(save_buttons_layout)
 
         self.tab_widget.addTab(tree_tab, "🌲 Tree View")
@@ -201,6 +219,12 @@ class CopickPlugin(QWidget):
             fallback_label.setStyleSheet("color: #888; font-size: 14px; padding: 40px;")
             fallback_layout.addWidget(fallback_label)
             self.tab_widget.addTab(info_fallback, "📋 Info View")
+
+        # Annotate tab (filament tracing, instance editing, instance browsing)
+        self.annotate_widget = None
+        if ANNOTATE_AVAILABLE:
+            self.annotate_widget = AnnotateWidget(self.viewer, self)
+            self.tab_widget.addTab(self.annotate_widget, "✏️ Annotate")
 
         # CLI tools tab
         if CLI_AVAILABLE:
@@ -382,6 +406,34 @@ class CopickPlugin(QWidget):
             if "Tools" in tab_text:
                 self.tab_widget.setCurrentIndex(i)
                 return
+
+    def switch_to_annotate_view(self) -> None:
+        """Switch to the annotate tab."""
+        if self.annotate_widget is not None:
+            self.tab_widget.setCurrentWidget(self.annotate_widget)
+
+    def open_filament_tracer(self, filaments: Any) -> None:
+        """Load a filament set (if needed) and start editing it in the Annotate tab."""
+        if self.annotate_widget is None:
+            return
+        self.switch_to_annotate_view()
+        try:
+            self.annotate_widget.open_filaments(filaments)
+        except Exception as e:
+            self.logger.exception(f"Could not open filaments for editing: {e}")
+            self.info_label.setText(f"Could not open filaments for editing: {e}")
+
+    def open_instance_editor(self, segmentation: Any, item: Optional[QTreeWidgetItem] = None) -> None:
+        """Show an instance segmentation in the Annotate tab, loading it first if needed."""
+        if self.annotate_widget is None:
+            return
+        self.switch_to_annotate_view()
+        for layer in self.viewer.layers:
+            if layer.metadata.get("copick_segmentation") is segmentation:
+                self.viewer.layers.selection.active = layer
+                return
+        # The new layer becomes the active layer when it is added, which opens the editor.
+        self.data_loader.load_segmentation_async(segmentation, item)
 
     def _on_tool_requested(self, schema, uri: str, run_name: str = "", object_type: str = "") -> None:
         """Handle tool request from context menu."""

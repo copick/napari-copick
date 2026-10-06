@@ -8,7 +8,17 @@ import numpy as np
 from napari.utils import DirectLabelColormap
 from qtpy.QtWidgets import QTreeWidgetItem
 
-from napari_copick.async_loaders import load_segmentation_worker, load_tomogram_worker
+from napari_copick.async_loaders import load_filaments_worker, load_segmentation_worker, load_tomogram_worker
+from napari_copick.filament_layers import add_centreline_layer
+from napari_copick.instance_layers import (
+    BBOXES_KEY,
+    COLOR_MODE_KEY,
+    COUNTS_KEY,
+    PANOPTIC_ROWS_KEY,
+    SEGMENTATION_TYPE_KEY,
+    instance_colormap,
+    segment_colormap,
+)
 from napari_copick.pick_layers import (
     FEATURE_DEFAULTS,
     TRANSFORMS_KEY,
@@ -74,12 +84,16 @@ class DataLoader:
         self.parent_widget.loading_workers[tomogram] = worker
         self.parent_widget.info_label.setText(f"Loading tomogram: {tomogram.tomo_type}...")
 
-    def load_segmentation_async(self, segmentation: copick.models.CopickSegmentation, item: QTreeWidgetItem) -> None:
+    def load_segmentation_async(
+        self,
+        segmentation: copick.models.CopickSegmentation,
+        item: Optional[QTreeWidgetItem] = None,
+    ) -> None:
         """Load a segmentation asynchronously with loading indicator using napari's threading system.
 
         Args:
             segmentation: The segmentation to load
-            item: The tree widget item associated with the segmentation
+            item: The tree widget item associated with the segmentation (optional)
         """
         # Check if already loading
         if segmentation in self.parent_widget.loading_workers:
@@ -87,7 +101,8 @@ class DataLoader:
             return
 
         # Add loading indicator
-        self.parent_widget.tree_view.add_loading_indicator(item)
+        if item is not None:
+            self.parent_widget.tree_view.add_loading_indicator(item)
         self.parent_widget.loading_items[segmentation] = item
 
         # Add global loading indicator
@@ -163,7 +178,6 @@ class DataLoader:
                         features=features,
                         feature_defaults=FEATURE_DEFAULTS,
                     )
-                    points_layer.size = [200] * len(points_layer.size)  # Set a default size for all points
                     # Points added later are new picks, whatever point was selected when they were placed.
                     points_layer.events.data.connect(lambda event: reset_added_features(points_layer, event))
 
@@ -174,6 +188,10 @@ class DataLoader:
                     points_layer.metadata["copick_session_id"] = pick_set.session_id
                     points_layer.metadata["copick_user_id"] = pick_set.user_id
                     points_layer.metadata[TRANSFORMS_KEY] = transforms
+                    points_layer.metadata["copick_kind"] = "picks"
+                    points_layer.metadata["copick_base_color"] = tuple(np.asarray(color, dtype=float) / 255.0)
+                    filament_obj = pickable_object is not None and is_filament(pickable_object)
+                    points_layer.metadata[COLOR_MODE_KEY] = "instance" if filament_obj else "object"
 
                     self.parent_widget.info_label.setText(f"Loaded Picks: {pick_set.pickable_object_name}")
                 else:
@@ -182,6 +200,47 @@ class DataLoader:
                 self.parent_widget.info_label.setText(f"No pick set found for Picks: {pick_set.pickable_object_name}")
         else:
             self.parent_widget.info_label.setText("No parent run found")
+
+    def load_filaments_async(self, filaments: Any, item: Optional[QTreeWidgetItem] = None) -> None:
+        """Load a filament set (traced centrelines) as a points layer.
+
+        Args:
+            filaments: The ``CopickFilaments`` to load
+            item: The tree widget item associated with the filaments (optional)
+        """
+        if filaments in self.parent_widget.loading_workers:
+            return
+        if item is not None:
+            self.parent_widget.tree_view.add_loading_indicator(item)
+        self.parent_widget.loading_items[filaments] = item
+        operation_id = f"load_filaments_{id(filaments)}"
+        self.parent_widget._add_operation(operation_id, f"Loading filaments: {filaments.pickable_object_name}...")
+
+        worker = load_filaments_worker(filaments)
+        worker.yielded.connect(lambda msg: self._on_progress(msg, filaments, "filaments"))
+        worker.returned.connect(lambda result: self._on_filaments_loaded(result))
+        worker.errored.connect(lambda e: self._on_error(str(e), filaments, "filaments"))
+        worker.finished.connect(lambda: self._cleanup_worker(filaments))
+        worker.start()
+        self.parent_widget.loading_workers[filaments] = worker
+
+    def _on_filaments_loaded(self, result: Dict[str, Any]) -> None:
+        filaments = result["filaments"]
+        session = result["session"]
+        item = self.parent_widget.loading_items.get(filaments)
+        if item is not None:
+            self.parent_widget.tree_view.remove_loading_indicator(item)
+        self.parent_widget._remove_operation(f"load_filaments_{id(filaments)}")
+        try:
+            layer = add_centreline_layer(self.parent_widget.viewer, session, run=filaments.run)
+            layer.metadata["copick_filaments"] = filaments
+            self.parent_widget.info_label.setText(
+                f"Loaded {len(session.to_list())} filaments: {filaments.pickable_object_name} "
+                f"({filaments.user_id} | {filaments.session_id})",
+            )
+        except Exception as e:
+            self.logger.exception(f"Error adding filaments to viewer: {str(e)}")
+            self.parent_widget.info_label.setText(f"Error displaying filaments: {str(e)}")
 
     def _on_progress(self, message: str, data_object: Any, data_type: str) -> None:
         """Handle progress updates from workers.
@@ -248,15 +307,24 @@ class DataLoader:
         voxel_size = result["voxel_size"]
         name = result["name"]
         resolution_level = result["resolution_level"]
+        seg_type = result.get("segmentation_type", "multilabel" if segmentation.is_multilabel else "binary")
 
         # Remove loading indicator
         if segmentation in self.parent_widget.loading_items:
             item = self.parent_widget.loading_items[segmentation]
-            self.parent_widget.tree_view.remove_loading_indicator(item)
+            if item is not None:
+                self.parent_widget.tree_view.remove_loading_indicator(item)
 
         # Remove global loading indicator
         operation_id = f"load_segmentation_{segmentation.name}_{id(segmentation)}"
         self.parent_widget._remove_operation(operation_id)
+
+        if seg_type == "instance":
+            self._add_instance_segmentation(result)
+            return
+        if seg_type == "panoptic":
+            self._add_panoptic_segmentation(result)
+            return
 
         # Add pre-loaded segmentation to the viewer (should be fast!)
         try:
@@ -299,6 +367,7 @@ class DataLoader:
             painting_layer.metadata["copick_voxel_size"] = segmentation.voxel_size
             painting_layer.metadata["copick_resolution_level"] = resolution_level
             painting_layer.metadata["copick_source_object_name"] = segmentation.name
+            painting_layer.metadata[SEGMENTATION_TYPE_KEY] = seg_type
 
             self.parent_widget.info_label.setText(
                 f"Loaded Segmentation: {segmentation.name} (Resolution Level {resolution_level})",
@@ -306,6 +375,81 @@ class DataLoader:
         except Exception as e:
             self.logger.exception(f"Error adding segmentation to viewer: {str(e)}")
             self.parent_widget.info_label.setText(f"Error displaying segmentation: {str(e)}")
+
+    def _common_segmentation_metadata(self, layer: Any, result: Dict[str, Any], seg_type: str) -> None:
+        segmentation = result["segmentation"]
+        layer.metadata["copick_run"] = segmentation.run
+        layer.metadata["copick_segmentation"] = segmentation
+        layer.metadata["copick_voxel_size"] = segmentation.voxel_size
+        layer.metadata["copick_resolution_level"] = result["resolution_level"]
+        layer.metadata["copick_source_object_name"] = segmentation.name
+        layer.metadata[SEGMENTATION_TYPE_KEY] = seg_type
+
+    def _add_instance_segmentation(self, result: Dict[str, Any]) -> None:
+        """An instance segmentation: a labels layer of instance IDs, each its own colour (as its picks/filaments)."""
+        segmentation = result["segmentation"]
+        try:
+            counts = result.get("counts", {})
+            layer = self.parent_widget.viewer.add_labels(
+                result["data"],
+                name=result["name"],
+                scale=result["voxel_size"],
+            )
+            layer.colormap = instance_colormap(counts.keys())
+            self._common_segmentation_metadata(layer, result, "instance")
+            layer.metadata[COUNTS_KEY] = counts
+            layer.metadata[BBOXES_KEY] = result.get("bboxes", {})
+            layer.selected_label = (max(counts) + 1) if counts else 1
+            self.parent_widget.info_label.setText(
+                f"Loaded instance segmentation: {segmentation.name}, {len(counts)} instances "
+                f"(Resolution Level {result['resolution_level']})",
+            )
+        except Exception as e:
+            self.logger.exception(f"Error adding instance segmentation to viewer: {str(e)}")
+            self.parent_widget.info_label.setText(f"Error displaying instance segmentation: {str(e)}")
+
+    def _add_panoptic_segmentation(self, result: Dict[str, Any]) -> None:
+        """A panoptic segmentation (display only): its label channel with object colours, and a segment layer where
+        each (object, instance) has its own colour and the status bar names it."""
+        segmentation = result["segmentation"]
+        try:
+            viewer = self.parent_widget.viewer
+            labels = viewer.add_labels(result["data"], name=result["name"], scale=result["voxel_size"])
+            labels.colormap = DirectLabelColormap(color_dict=self.parent_widget.get_copick_colormap())
+            labels.editable = False
+            self._common_segmentation_metadata(labels, result, "panoptic")
+
+            rows = result["rows"]
+            segments = viewer.add_labels(
+                result["segments"],
+                name=result["name"].replace("Panoptic:", "Panoptic segments:", 1),
+                scale=result["voxel_size"],
+            )
+            segments.colormap = segment_colormap(rows)
+            segments.editable = False
+            try:
+                import pandas as pd
+
+                segments.features = pd.DataFrame(
+                    {
+                        "index": [0] + [r.row_key for r in rows],
+                        "object": ["background"] + [r.label for r in rows],
+                        "instance_id": [0] + [r.instance_id for r in rows],
+                    },
+                )
+            except Exception as e:  # features are a convenience for the status bar
+                self.logger.warning(f"Could not set panoptic segment features: {e}")
+            self._common_segmentation_metadata(segments, result, "panoptic")
+            segments.metadata["copick_kind"] = "panoptic_segments"
+            segments.metadata[PANOPTIC_ROWS_KEY] = rows
+            segments.metadata[BBOXES_KEY] = result.get("bboxes", {})
+            self.parent_widget.info_label.setText(
+                f"Loaded panoptic segmentation: {segmentation.name}, {len(rows)} segments "
+                f"(Resolution Level {result['resolution_level']})",
+            )
+        except Exception as e:
+            self.logger.exception(f"Error adding panoptic segmentation to viewer: {str(e)}")
+            self.parent_widget.info_label.setText(f"Error displaying panoptic segmentation: {str(e)}")
 
     def _on_error(self, error_msg: str, data_object: Any, data_type: str) -> None:
         """Handle errors for loading operations.
@@ -323,6 +467,8 @@ class DataLoader:
             self.logger.exception(f"Run expansion error for {data_object.name}: {error_msg}")
         elif data_type == "voxel_spacing":
             self.logger.exception(f"Voxel spacing expansion error for {data_object.voxel_size}: {error_msg}")
+        elif data_type == "filaments":
+            self.logger.exception(f"Filaments loading error for {data_object.pickable_object_name}: {error_msg}")
 
         # Remove global loading indicator for errors
         if data_type == "tomogram":
@@ -337,6 +483,8 @@ class DataLoader:
         elif data_type == "voxel_spacing":
             operation_id = f"expand_voxel_spacing_{data_object.voxel_size}"
             self.parent_widget._remove_operation(operation_id)
+        elif data_type == "filaments":
+            self.parent_widget._remove_operation(f"load_filaments_{id(data_object)}")
 
         # Remove loading indicator and clean up workers properly
         if data_object in self.parent_widget.loading_items:

@@ -90,8 +90,8 @@ class NapariCLIContextInterface(AbstractCLIContextInterface):
         if self._plugin.root:
             user_ids = set()
             for run in self._plugin.root.runs[:5]:
-                for picks in run.picks:
-                    user_ids.add(picks.user_id)
+                for entity in self._annotations(run):
+                    user_ids.add(entity.user_id)
             return sorted(user_ids)
         return []
 
@@ -99,9 +99,17 @@ class NapariCLIContextInterface(AbstractCLIContextInterface):
         if self._plugin.root:
             session_ids = set()
             for run in self._plugin.root.runs[:5]:
-                for picks in run.picks:
-                    session_ids.add(picks.session_id)
+                for entity in self._annotations(run):
+                    session_ids.add(entity.session_id)
             return sorted(session_ids)
+
+    @staticmethod
+    def _annotations(run: Any) -> List[Any]:
+        """Picks, segmentations and (if copick has them) filaments of a run."""
+        entities = list(run.picks) + list(run.segmentations)
+        if hasattr(run, "filaments"):
+            entities += list(run.filaments)
+        return entities
         return []
 
     def get_tomo_types(self) -> List[str]:

@@ -6,6 +6,8 @@ from typing import Any, Dict
 
 import copick
 import numpy as np
+from copick_shared_ui.core.types import segmentation_type_flags, segmentation_type_of
+from copick_shared_ui.util.instances import label_bboxes, label_counts, panoptic_segments
 from napari.qt.threading import thread_worker
 
 from napari_copick.storage import open_multiscale_level, spatial_scale
@@ -43,7 +45,9 @@ def load_tomogram_worker(tomogram: copick.models.CopickTomogram, resolution_leve
 def load_segmentation_worker(segmentation: copick.models.CopickSegmentation, resolution_level: int = 0):
     """Load segmentation data in background thread using napari's threading system."""
     try:
+        seg_type = segmentation_type_of(segmentation)
         yield f"Opening zarr group for {segmentation.meta.name}..."
+        # OME metadata selects the level; spatial_scale reads the z/y/x axes, so panoptic (c, z, y, x) works too.
         level = open_multiscale_level(segmentation, resolution_level)
         resolution_level = level.level
 
@@ -54,14 +58,39 @@ def load_segmentation_worker(segmentation: copick.models.CopickSegmentation, res
         yield "Loading segmentation data into memory..."
         loaded_data = np.array(level.array)
 
-        # Return the final result with pre-loaded data
-        return {
+        result = {
             "segmentation": segmentation,
+            "segmentation_type": seg_type,
             "data": loaded_data,
             "voxel_size": voxel_size,
-            "name": f"[{segmentation.run.name}] Segmentation: {segmentation.meta.name} ({segmentation.user_id} | {segmentation.session_id}) (Level {resolution_level})",
+            "name": (
+                f"[{segmentation.run.name}] Segmentation: {segmentation.meta.name} "
+                f"({segmentation.user_id} | {segmentation.session_id}) (Level {resolution_level})"
+            ),
             "resolution_level": resolution_level,
         }
+
+        if seg_type == "instance":
+            yield "Counting instances..."
+            result["counts"] = label_counts(loaded_data)
+            result["bboxes"] = label_bboxes(loaded_data)
+            result["name"] = result["name"].replace("Segmentation:", "Instances:", 1)
+        elif seg_type == "panoptic":
+            # (2, Z, Y, X): channel 0 = object label, channel 1 = instance ID within the object
+            if loaded_data.ndim != 4 or loaded_data.shape[0] != 2:
+                raise ValueError(f"Panoptic segmentation has shape {loaded_data.shape}, expected (2, Z, Y, X)")
+            yield "Indexing panoptic segments..."
+            objects = {
+                o.label: (o.name, tuple(np.asarray(o.color or (128, 128, 128, 255), dtype=float) / 255.0))
+                for o in segmentation.run.root.config.pickable_objects
+            }
+            segments, rows = panoptic_segments(loaded_data[0], loaded_data[1], objects)
+            result["data"] = loaded_data[0]
+            result["segments"] = segments
+            result["rows"] = rows
+            result["bboxes"] = label_bboxes(segments)
+            result["name"] = result["name"].replace("Segmentation:", "Panoptic:", 1)
+        return result
 
     except Exception as e:
         error_msg = f"Error loading segmentation: {str(e)}"
@@ -104,7 +133,13 @@ def expand_run_worker(run: copick.models.CopickRun):
                 user_dict[pick.meta.user_id][pick.meta.session_id] = []
             user_dict[pick.meta.user_id][pick.meta.session_id].append(pick)
 
-        return {"run": run, "voxel_spacings": voxel_spacings, "picks_data": user_dict}
+        # Traced filaments (copick versions with the Filaments entity)
+        filaments = []
+        if hasattr(run, "filaments"):
+            yield f"Loading filaments for {run.meta.name}..."
+            filaments = list(run.filaments)
+
+        return {"run": run, "voxel_spacings": voxel_spacings, "picks_data": user_dict, "filaments": filaments}
 
     except Exception as e:
         error_msg = f"Error expanding run: {str(e)}"
@@ -144,6 +179,7 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         split_instances = save_params.get("split_instances", False)
         convert_to_binary = save_params.get("convert_to_binary", False)
         is_multilabel = save_params.get("is_multilabel", False)
+        seg_type = save_params.get("segmentation_type", "multilabel" if is_multilabel else "binary")
 
         # Use segmentation_name for multilabel, object_name for single-label
         segmentation_name = save_params.get("segmentation_name", save_params.get("object_name"))
@@ -169,8 +205,9 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
         else:
             yield "Segmentation shape matches target, no scaling needed..."
 
-        yield "Converting data to uint8 format..."
-        seg_data = seg_data.astype(np.uint8)
+        from napari_copick.save_utils import validate_segmentation_values
+
+        validate_segmentation_values(seg_data, seg_type, convert_to_binary or split_instances)
 
         # Handle different processing modes
         if split_instances:
@@ -193,12 +230,12 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                     name=segmentation_name,
                     session_id=instance["session_id"],
                     user_id=user_id,
-                    is_multilabel=False,  # Binary segmentation
                     exist_ok=exist_ok,
+                    **segmentation_type_flags("binary"),
                 )
 
                 # Save the binary instance data
-                segmentation.from_numpy(instance["data"], levels=1, dtype=np.uint8)
+                segmentation.from_numpy(instance["data"], levels=1)
                 saved_segmentations.append(segmentation)
 
             yield f"Successfully saved {len(instances)} binary instances for '{segmentation_name}' to run '{run.name}'"
@@ -227,14 +264,14 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 name=segmentation_name,
                 session_id=session_id,
                 user_id=user_id,
-                is_multilabel=False,  # Binary segmentation
                 exist_ok=exist_ok,
+                **segmentation_type_flags("binary"),
             )
 
             yield "Saving binary segmentation to copick using from_numpy method..."
 
             # Save using copick's from_numpy method which follows copick conventions
-            segmentation.from_numpy(binary_data, levels=1, dtype=np.uint8)
+            segmentation.from_numpy(binary_data, levels=1)
 
             yield f"Successfully saved binary segmentation '{segmentation_name}' to run '{run.name}'"
 
@@ -247,8 +284,7 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 "convert_to_binary": True,
             }
         else:
-            # Normal save mode - respects is_multilabel setting
-            seg_type = "multilabel" if is_multilabel else "single-label"
+            # Normal save mode: binary, multilabel or instance
             yield f"Creating {seg_type} segmentation..."
 
             # Create new segmentation
@@ -257,14 +293,14 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 name=segmentation_name,
                 session_id=session_id,
                 user_id=user_id,
-                is_multilabel=is_multilabel,
                 exist_ok=exist_ok,
+                **segmentation_type_flags(seg_type),
             )
 
             yield "Saving segmentation to copick using from_numpy method..."
 
-            # Save using copick's from_numpy method which follows copick conventions
-            segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
+            # copick chooses the smallest unsigned dtype that holds every value (uint16+ for instance IDs)
+            segmentation.from_numpy(seg_data, levels=1)
 
             yield f"Successfully saved {seg_type} segmentation '{segmentation_name}' to run '{run.name}'"
 
@@ -274,9 +310,46 @@ def save_segmentation_worker(save_params: Dict[str, Any]):
                 "segmentation": segmentation,
                 "object_name": segmentation_name,
                 "run_name": run.name,
-                "is_multilabel": is_multilabel,
+                "is_multilabel": seg_type == "multilabel",
+                "segmentation_type": seg_type,
             }
 
     except Exception as e:
         error_msg = f"Error saving segmentation: {str(e)}"
         raise ValueError(error_msg) from e
+
+
+@thread_worker
+def load_filaments_worker(filaments: Any, step: float = None):
+    """Read a filament set and open it as an editing session."""
+    try:
+        yield f"Loading filaments {filaments.pickable_object_name} ({filaments.user_id} | {filaments.session_id})..."
+        from copick_shared_ui.util.filament_session import FilamentEditSession
+
+        _ = filaments.filaments  # read the file off the UI thread
+        session = FilamentEditSession.from_filaments(filaments, step=step or filaments.voxel_spacing or 10.0)
+        return {"filaments": filaments, "session": session}
+    except Exception as e:
+        raise ValueError(f"Error loading filaments: {e}") from e
+
+
+@thread_worker
+def save_filaments_worker(save_params: Dict[str, Any]):
+    """Store a filament editing session (and optionally picks sampled along the filaments)."""
+    try:
+        session = save_params["session"]
+        n = len(session.to_list())
+        yield f"Saving {n} filaments for '{session.object_name}'..."
+        result = session.save(
+            user_id=save_params["user_id"],
+            session_id=save_params["session_id"],
+            voxel_spacing=save_params.get("voxel_spacing"),
+            pick_spacing=save_params.get("pick_spacing"),
+            exist_ok=save_params.get("exist_ok", True),
+        )
+        message = f"Saved {result['n_filaments']} filaments for '{session.object_name}'"
+        if result["n_picks"]:
+            message += f" and {result['n_picks']} sampled picks"
+        return {"success": True, "message": message, "run_name": session.run.name, **result}
+    except Exception as e:
+        raise ValueError(f"Error saving filaments: {e}") from e
