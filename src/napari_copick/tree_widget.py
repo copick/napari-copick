@@ -4,6 +4,12 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import copick
+from copick_shared_ui.core.types import (
+    SEGMENTATION_TYPE_LABELS,
+    segmentation_type_of,
+    supports_filaments,
+    uri_object_type,
+)
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor, QIcon, QPixmap
 from qtpy.QtWidgets import (
@@ -24,6 +30,16 @@ from napari_copick.async_loaders import (
 )
 
 logger = logging.getLogger(__name__)
+
+# copick versions without the Filaments entity have no CopickFilaments; isinstance(x, ()) is always False.
+CopickFilaments = getattr(copick.models, "CopickFilaments", ())
+
+# Tree nodes per segmentation type: binary and multilabel share "Segmentations", the newer types get their own.
+SEGMENTATION_NODES = (
+    ("Segmentations", ("binary", "multilabel")),
+    ("Instance Segmentations", ("instance",)),
+    ("Panoptic Segmentations", ("panoptic",)),
+)
 
 
 class CopickTreeWidget(QTreeWidget):
@@ -103,6 +119,8 @@ class CopickTreeWidget(QTreeWidget):
         elif isinstance(data, copick.models.CopickPicks):
             parent_run = self.get_parent_run(item)
             self.parent_widget.data_loader.load_picks(data, parent_run)
+        elif isinstance(data, CopickFilaments):
+            self.parent_widget.data_loader.load_filaments_async(data, item)
 
     def get_parent_run(self, item: QTreeWidgetItem) -> Optional[copick.models.CopickRun]:
         """Get the parent run for a given tree item."""
@@ -207,6 +225,22 @@ class CopickTreeWidget(QTreeWidget):
 
             item.addChild(picks_item)
 
+            # Traced filaments: Object > "User | Session"
+            if supports_filaments():
+                filaments_item = QTreeWidgetItem(item, ["Filaments"])
+                by_object = {}
+                for fil in result.get("filaments", []):
+                    by_object.setdefault(fil.pickable_object_name, []).append(fil)
+                for object_name in sorted(by_object):
+                    object_item = QTreeWidgetItem(filaments_item, [object_name])
+                    icon = self._color_icon(object_name)
+                    if icon:
+                        object_item.setIcon(0, icon)
+                    for fil in sorted(by_object[object_name], key=lambda f: (f.user_id, f.session_id)):
+                        fil_item = QTreeWidgetItem(object_item, [f"{fil.user_id} | {fil.session_id}"])
+                        fil_item.setData(0, Qt.UserRole, fil)
+                item.addChild(filaments_item)
+
             # Continue expansion restoration for newly created children
             self.parent_widget.tree_expansion_manager._force_expand_item_if_needed(item, "")
 
@@ -278,32 +312,34 @@ class CopickTreeWidget(QTreeWidget):
                 tomo_child.setData(0, Qt.UserRole, tomogram)
             item.addChild(tomogram_item)
 
-            # Add segmentations with object type > "user | session" structure
-            segmentation_item = QTreeWidgetItem(item, ["Segmentations"])
-            segmentations_by_object = self.group_segmentations_by_object_type(segmentations)
-
-            # Create tree structure: Object Type > "User | Session"
-            for object_name in sorted(segmentations_by_object.keys()):
-                object_item = QTreeWidgetItem(segmentation_item, [object_name])
-                icon = self._color_icon(object_name)
-                if icon:
-                    object_item.setIcon(0, icon)
-
-                # Group by user|session and sort by user
-                user_session_segmentations = {}
-                for segmentation in segmentations_by_object[object_name]:
-                    user_session_key = f"{segmentation.user_id} | {segmentation.session_id}"
-                    if user_session_key not in user_session_segmentations:
-                        user_session_segmentations[user_session_key] = []
-                    user_session_segmentations[user_session_key].append(segmentation)
-
-                # Sort by user (first part before |)
-                for user_session_key in sorted(user_session_segmentations.keys(), key=lambda x: x.split(" | ")[0]):
-                    user_session_item = QTreeWidgetItem(object_item, [user_session_key])
-                    # Set the first segmentation as the data (for backwards compatibility)
-                    user_session_item.setData(0, Qt.UserRole, user_session_segmentations[user_session_key][0])
-
-            item.addChild(segmentation_item)
+            # Add segmentations, one node per type group, with Object Type > "User | Session" structure. Every
+            # segmentation gets its own item: a binary and an instance segmentation may share name, user and session.
+            for node_name, types in SEGMENTATION_NODES:
+                group = [s for s in segmentations if segmentation_type_of(s) in types]
+                if not group and node_name != "Segmentations":
+                    continue
+                segmentation_item = QTreeWidgetItem(item, [node_name])
+                segmentations_by_object = self.group_segmentations_by_object_type(group)
+                for object_name in sorted(segmentations_by_object.keys()):
+                    object_item = QTreeWidgetItem(segmentation_item, [object_name])
+                    icon = self._color_icon(object_name)
+                    if icon:
+                        object_item.setIcon(0, icon)
+                    entries = sorted(
+                        segmentations_by_object[object_name],
+                        key=lambda seg: (seg.user_id, seg.session_id, segmentation_type_of(seg)),
+                    )
+                    for segmentation in entries:
+                        label = f"{segmentation.user_id} | {segmentation.session_id}"
+                        if segmentation_type_of(segmentation) == "multilabel":
+                            label += " (multilabel)"
+                        user_session_item = QTreeWidgetItem(object_item, [label])
+                        user_session_item.setData(0, Qt.UserRole, segmentation)
+                        user_session_item.setToolTip(
+                            0,
+                            f"{SEGMENTATION_TYPE_LABELS[segmentation_type_of(segmentation)]} segmentation",
+                        )
+                item.addChild(segmentation_item)
 
             # Continue expansion restoration for newly created children
             # Build the correct path prefix for the voxel spacing's parent
@@ -413,8 +449,18 @@ class CopickTreeWidget(QTreeWidget):
 
         menu = QMenu(self)
 
-        # Delete action for picks and segmentations
-        if isinstance(data, (copick.models.CopickPicks, copick.models.CopickSegmentation)):
+        # Annotation actions
+        if isinstance(data, CopickFilaments):
+            trace_action = QAction("\u270f\ufe0f Trace / edit filaments", self)
+            trace_action.triggered.connect(lambda: self.parent_widget.open_filament_tracer(data))
+            menu.addAction(trace_action)
+        elif isinstance(data, copick.models.CopickSegmentation) and segmentation_type_of(data) == "instance":
+            edit_action = QAction("\u270f\ufe0f Edit instances", self)
+            edit_action.triggered.connect(lambda: self.parent_widget.open_instance_editor(data, item))
+            menu.addAction(edit_action)
+
+        # Delete action for picks, filaments and segmentations
+        if isinstance(data, (copick.models.CopickPicks, copick.models.CopickSegmentation, CopickFilaments)):
             delete_action = QAction("\U0001f5d1\ufe0f Delete", self)
             delete_action.triggered.connect(lambda: self.delete_item(item, data))
             menu.addAction(delete_action)
@@ -436,16 +482,8 @@ class CopickTreeWidget(QTreeWidget):
             return
 
         # Determine object type
-        cls_name = type(data).__name__
-        if "Picks" in cls_name:
-            obj_type = "picks"
-        elif "Mesh" in cls_name:
-            obj_type = "mesh"
-        elif "Segmentation" in cls_name:
-            obj_type = "segmentation"
-        elif "Tomogram" in cls_name:
-            obj_type = "tomogram"
-        else:
+        obj_type = uri_object_type(data)
+        if obj_type is None:
             return
 
         # Get schemas from the CLI widget
@@ -494,7 +532,11 @@ class CopickTreeWidget(QTreeWidget):
             item_name = f"{data.pickable_object_name} picks ({data.user_id} | {data.session_id})"
         elif isinstance(data, copick.models.CopickSegmentation):
             item_type = "segmentation"
-            item_name = f"{data.name} segmentation ({data.user_id} | {data.session_id})"
+            kind = SEGMENTATION_TYPE_LABELS[segmentation_type_of(data)].lower()
+            item_name = f"{data.name} {kind} segmentation ({data.user_id} | {data.session_id}, {data.voxel_size} Å)"
+        elif isinstance(data, CopickFilaments):
+            item_type = "filaments"
+            item_name = f"{data.pickable_object_name} filaments ({data.user_id} | {data.session_id})"
         else:
             return
 
@@ -518,6 +560,8 @@ class CopickTreeWidget(QTreeWidget):
 
                 if item_type == "picks":
                     item_data["picks"] = [data]
+                elif item_type == "filaments":
+                    item_data["filaments"] = [data]
                 else:
                     item_data["segmentations"] = [data]
 

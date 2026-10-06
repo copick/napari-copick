@@ -564,7 +564,7 @@ wheels = [
 
 [[package]]
 name = "copick"
-version = "2.0.0a1"
+version = "2.0.0a3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -596,14 +596,14 @@ dependencies = [
     { name = "zarr", version = "3.1.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "zarr", version = "3.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/80/40/65bd5bb0c774b964e489683fa541d8fda09b3c2bbe51b0fa9ec73011ff97/copick-2.0.0a1.tar.gz", hash = "sha256:39256a1671d82088e8a3aebd237b322e498d5b38e2f5ff008ba9f586bf87c101", size = 47806055, upload-time = "2026-08-18T16:41:20.765Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/26/065b6dc5ea4685ec8212329b1e72bc25523f6fe6958902cc4398d622fd63/copick-2.0.0a3.tar.gz", hash = "sha256:63ebfb8ea6fd3e4106d3e3e47c93181ed89f42a2388e68dee19c14f276e39d60", size = 47884273, upload-time = "2026-10-06T08:10:42.11Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/d7/a44a4a97bebd025b484e5c49f59627ba7ba67136d16d0f83f50a392864c1/copick-2.0.0a1-py3-none-any.whl", hash = "sha256:6c8002976c2e485d4e1d8814ee8aa096f76be8f82531ff3559e11e2469285ed9", size = 235457, upload-time = "2026-08-18T16:41:18.84Z" },
+    { url = "https://files.pythonhosted.org/packages/86/25/0ea1d3d5a9c9fed0b270bcd533f798f6356654dfd09dd0264f060b40f367/copick-2.0.0a3-py3-none-any.whl", hash = "sha256:f83efe9e5f52e40c5641ac3018f4e25f26a27ff51f6d6f117ec8390d0299ea3e", size = 277010, upload-time = "2026-10-06T08:10:38.833Z" },
 ]
 
 [[package]]
 name = "copick-shared-ui"
-version = "2.0.0a1"
+version = "2.0.0a3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "copick" },
@@ -616,9 +616,9 @@ dependencies = [
     { name = "zarr", version = "3.1.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "zarr", version = "3.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/97/38/98330b581f8f3ad54a3d273f034231ffd9bb7711528b9a61675a75b00f74/copick_shared_ui-2.0.0a1.tar.gz", hash = "sha256:a50c2ac59a5e6c77fedb2924e2cd79b5665e6fdeb9d8661964399341d131c685", size = 317200, upload-time = "2026-08-18T21:37:49.586Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4a/ee/2484ff43f456ed07e7f94e1834079f60770ba8f589bcd1a3b0c9feb83d77/copick_shared_ui-2.0.0a3.tar.gz", hash = "sha256:a93ace88849a99d4eee81066a253daa5be9a2fbc0cbb80655bb0df7ddd4b3ef9", size = 358076, upload-time = "2026-10-06T08:22:15.007Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/6e/f802c03925ab1c2d2cd28ac27cfdb7036ed2c8e686129e66ac0f996c548d/copick_shared_ui-2.0.0a1-py3-none-any.whl", hash = "sha256:c56d06ee53cffc7cda56a916d480793198e2311b099e7965c132ea27e43f6515", size = 86272, upload-time = "2026-08-18T21:37:48.354Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/b7/49f152078bfcd4701abdac02b7df8c4ce28e90c54a10b0afc26a24e7b2ac/copick_shared_ui-2.0.0a3-py3-none-any.whl", hash = "sha256:6f6ba8284637a2a98af5ee73c1599bd84d8130d1940b81c31b42375849e02fcd", size = 120288, upload-time = "2026-10-06T08:22:13.367Z" },
 ]
 
 [[package]]
@@ -1951,13 +1951,13 @@ testing = [
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "click" },
-    { name = "copick", specifier = ">=2.0.0a1,<3" },
-    { name = "copick-shared-ui", specifier = ">=2.0.0a1,<3" },
+    { name = "copick", specifier = ">=2.0.0a3,<3" },
+    { name = "copick-shared-ui", specifier = ">=2.0.0a3,<3" },
     { name = "fsspec" },
     { name = "hatch-vcs", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "hatchling", marker = "extra == 'dev'", specifier = ">=1.25.0" },
     { name = "magicgui" },
-    { name = "napari" },
+    { name = "napari", specifier = ">=0.5" },
     { name = "napari", marker = "extra == 'testing'" },
     { name = "numpy", specifier = ">=2.0.2" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.2.0" },
