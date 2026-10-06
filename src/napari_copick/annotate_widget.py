@@ -46,6 +46,7 @@ from napari_copick.filament_layers import (
     ControlLayerSync,
     add_centreline_layer,
     add_controls_layer,
+    cut_filament,
 )
 from napari_copick.instance_layers import (
     BBOXES_KEY,
@@ -164,6 +165,21 @@ class FilamentTracerPanel(QGroupBox):
             buttons.addWidget(b)
         layout.addLayout(buttons)
 
+        buttons_edit = QHBoxLayout()
+        self.cut_btn = QPushButton("✂️ Cut")
+        self.cut_btn.setCheckable(True)
+        self.cut_btn.setToolTip("Cut mode: click a filament in the 2D view to split it in two there (Shift-C)")
+        self.cut_btn.toggled.connect(self._on_cut_toggled)
+        self.undo_btn = QPushButton("↶ Undo")
+        self.undo_btn.setToolTip("Undo the last filament edit (Ctrl-Z)")
+        self.undo_btn.clicked.connect(self.undo)
+        self.redo_btn = QPushButton("↷ Redo")
+        self.redo_btn.setToolTip("Redo the last undone filament edit (Ctrl-Shift-Z)")
+        self.redo_btn.clicked.connect(self.redo)
+        for b in (self.cut_btn, self.undo_btn, self.redo_btn):
+            buttons_edit.addWidget(b)
+        layout.addLayout(buttons_edit)
+
         buttons2 = QHBoxLayout()
         self.convert_btn = QPushButton("Convert to Catmull-Rom")
         self.convert_btn.setToolTip(
@@ -180,7 +196,8 @@ class FilamentTracerPanel(QGroupBox):
 
         hint = QLabel(
             "Edit mode: click to add control points (2D view), select + drag to move, Delete to remove. "
-            "Shift-N new · Shift-R reverse · Shift-D delete · Shift-] / Shift-[ next / previous.",
+            "Shift-N new · Shift-R reverse · Shift-D delete · Shift-C cut mode · Shift-] / Shift-[ next / previous · "
+            "Ctrl-Z / Ctrl-Shift-Z undo / redo.",
         )
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #888; font-size: 10px;")
@@ -189,6 +206,8 @@ class FilamentTracerPanel(QGroupBox):
     # -- binding ---------------------------------------------------------------------------------------------------
 
     def set_session(self, session: FilamentEditSession) -> None:
+        if session is not self.session:
+            self.cut_btn.setChecked(False)  # cut mode belongs to the session it was started for
         self.session = session
         self.edit_btn.blockSignals(True)
         self.edit_btn.setChecked(self.annotate.controls_layer(session) is not None)
@@ -215,6 +234,8 @@ class FilamentTracerPanel(QGroupBox):
         self.mode_combo.blockSignals(False)
         kind = s.kind(s.active_id)
         self.convert_btn.setVisible(kind == "bspline")
+        self.undo_btn.setEnabled(s.can_undo)
+        self.redo_btn.setEnabled(s.can_redo)
 
     # -- actions ---------------------------------------------------------------------------------------------------
 
@@ -238,6 +259,37 @@ class FilamentTracerPanel(QGroupBox):
             self.annotate.start_editing(self.session)
         else:
             self.annotate.stop_editing(self.session)
+
+    def _on_cut_toggled(self, on: bool) -> None:
+        self.annotate.set_cut_mode(self.session if on else None)
+
+    def cut_at(self, zyx) -> None:
+        """Cut the filament passing closest to a clicked point (z, y, x) in two."""
+        if self.session is None:
+            return
+        try:
+            first, second = cut_filament(self.session, zyx)
+        except ValueError as e:
+            self.annotate.plugin.info_label.setText(str(e))
+            return
+        self.annotate.plugin.info_label.setText(f"Cut filament {first} into {first} and {second}")
+        self.annotate.after_session_edit(self.session)
+
+    def undo(self) -> None:
+        self._history(redo=False)
+
+    def redo(self) -> None:
+        self._history(redo=True)
+
+    def _history(self, redo: bool) -> None:
+        if self.session is None:
+            return
+        label = self.session.redo() if redo else self.session.undo()
+        if label is None:
+            self.annotate.plugin.info_label.setText(f"Nothing to {'redo' if redo else 'undo'}")
+            return
+        self.annotate.plugin.info_label.setText(f"{'Redo' if redo else 'Undo'}: {label.lower()}")
+        self.annotate.after_session_edit(self.session)
 
     def new_filament(self) -> None:
         if self.session is None:
@@ -264,8 +316,9 @@ class FilamentTracerPanel(QGroupBox):
     def delete(self, ids) -> None:
         if self.session is None:
             return
-        for i in ids:
-            self.session.delete_filament(int(i))
+        with self.session.history_step("Delete filaments"):  # one undo step for all of them
+            for i in ids:
+                self.session.delete_filament(int(i))
         self.annotate.after_session_edit(self.session)
 
     def convert_active(self) -> None:
@@ -487,6 +540,8 @@ class AnnotateWidget(QWidget):
         self.plugin = plugin
         self._syncs: Dict[int, Tuple[ControlLayerSync, Any]] = {}  # id(session) -> (sync, controls layer)
         self._adapter = None
+        self._cut_session: Optional[FilamentEditSession] = None
+        self._cut_restore_mode: Optional[str] = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -581,12 +636,54 @@ class AnnotateWidget(QWidget):
             "Shift-D": lambda _layer: self.tracer.delete([self.tracer.active_spin.value()]),
             "Shift-]": lambda _layer: self.tracer.step(1),
             "Shift-[": lambda _layer: self.tracer.step(-1),
+            "Shift-C": lambda _layer: self.tracer.cut_btn.toggle(),
+            "Control-Z": lambda _layer: self.tracer.undo(),
+            "Control-Shift-Z": lambda _layer: self.tracer.redo(),
+            "Control-Y": lambda _layer: self.tracer.redo(),
         }
         for key, func in bindings.items():
             try:
                 layer.bind_key(key, func, overwrite=True)
             except Exception as e:  # pragma: no cover - depends on the napari version
                 logger.warning(f"Could not bind {key}: {e}")
+
+    # -- cut mode ----------------------------------------------------------------------------------------------------
+
+    def set_cut_mode(self, session: Optional[FilamentEditSession]) -> None:
+        """Cut filaments of ``session`` at left-clicks in the 2D view (None ends cut mode).
+
+        While cutting, the control layer pans instead of adding points; a click that turns into a drag still pans.
+        """
+        if self._cut_session is not None:
+            if self._on_cut_click in self.viewer.mouse_drag_callbacks:
+                self.viewer.mouse_drag_callbacks.remove(self._on_cut_click)
+            controls = self.controls_layer(self._cut_session)
+            if controls is not None and self._cut_restore_mode is not None:
+                controls.mode = self._cut_restore_mode
+            self._cut_session = None
+            self._cut_restore_mode = None
+        if session is None:
+            return
+        self._cut_session = session
+        controls = self.controls_layer(session)
+        if controls is not None:
+            self._cut_restore_mode = controls.mode
+            controls.mode = "pan_zoom"
+        self.viewer.mouse_drag_callbacks.append(self._on_cut_click)
+        if self.viewer.dims.ndisplay != 2:
+            self.plugin.info_label.setText("Switch to the 2D view to cut filaments.")
+
+    def _on_cut_click(self, viewer: Any, event: Any):
+        if self._cut_session is None or getattr(event, "button", 1) != 1 or viewer.dims.ndisplay != 2:
+            return
+        position = np.asarray(event.position, dtype=float)
+        dragged = False
+        yield
+        while event.type == "mouse_move":
+            dragged = True
+            yield
+        if not dragged and self.tracer.session is self._cut_session:
+            self.tracer.cut_at(position)
 
     def _after_sync(self, session: FilamentEditSession, message: str) -> None:
         if message:
@@ -691,6 +788,8 @@ class AnnotateWidget(QWidget):
         session = layer.metadata.get(SESSION_KEY) if layer is not None else None
         if session is not None and layer.metadata.get(KIND_KEY) == CONTROLS_KIND:
             self._syncs.pop(id(session), None)
+            if self._cut_session is session:
+                self._cut_restore_mode = None  # the layer it would restore is gone
             if self.tracer.session is session:
                 self.tracer.edit_btn.blockSignals(True)
                 self.tracer.edit_btn.setChecked(False)
@@ -759,7 +858,7 @@ class AnnotateWidget(QWidget):
         reply = QMessageBox.question(
             self,
             "Delete instances",
-            f"Delete {len(keys)} instance(s)? (Instance segmentation edits can be undone with Ctrl-Z.)",
+            f"Delete {len(keys)} instance(s)? (This can be undone with Ctrl-Z.)",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
