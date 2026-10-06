@@ -31,9 +31,9 @@ dependencies = [
     "trimesh",
     "fsspec",
     "pydantic>=2",
-    "copick>=2.0.0a2,<3",
+    "copick>=2.0.0a3,<3",
     "click",
-    "copick-shared-ui>=2.0.0a2,<3",
+    "copick-shared-ui>=2.0.0a3,<3",
     "napari>=0.5",
 ]
 authors = [
