@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import copick
 import numpy as np
 import zarr
+from copick_shared_ui.core.types import segmentation_type_flags
 
 from napari_copick.pick_layers import TRANSFORMS_KEY, layer_to_points
 
@@ -34,6 +35,7 @@ def save_segmentation_to_copick(
     session_id = save_params["session_id"]
     user_id = save_params["user_id"]
     is_multilabel = save_params.get("is_multilabel", False)
+    seg_type = save_params.get("segmentation_type", "multilabel" if is_multilabel else "binary")
 
     # Use segmentation_name for multilabel, object_name for single-label
     segmentation_name = save_params.get("segmentation_name", save_params.get("object_name"))
@@ -45,7 +47,7 @@ def save_segmentation_to_copick(
             name=segmentation_name,
             session_id=session_id,
             user_id=user_id,
-            is_multilabel=is_multilabel,
+            **segmentation_type_flags(seg_type),
         )
 
         # Get the segmentation data
@@ -56,11 +58,10 @@ def save_segmentation_to_copick(
         if seg_data.shape != target_shape:
             seg_data = scale_segmentation_to_target_shape(seg_data, target_shape)
 
-        # Ensure data is uint8 for segmentation
-        seg_data = seg_data.astype(np.uint8)
+        validate_segmentation_values(seg_data, seg_type)
 
-        # Save using copick's from_numpy method which follows copick conventions
-        segmentation.from_numpy(seg_data, levels=1, dtype=np.uint8)
+        # copick chooses the smallest unsigned dtype that holds every value (uint16+ for instance IDs)
+        segmentation.from_numpy(seg_data, levels=1)
 
         if info_callback:
             info_callback(f"Saved segmentation '{segmentation_name}' to run '{run.name}'")
@@ -160,14 +161,14 @@ def scale_segmentation_to_target_shape(seg_data: np.ndarray, target_shape: Tuple
             # Crop or pad if there are slight differences due to rounding
             scaled_data = crop_or_pad_to_shape(scaled_data, target_shape)
 
-        return scaled_data.astype(np.uint8)
+        return scaled_data.astype(seg_data.dtype, copy=False)
 
     except ImportError:
         logger.warning("scipy not available, saving segmentation at original resolution")
-        return seg_data.astype(np.uint8)
+        return seg_data
     except Exception as e:
         logger.exception(f"Error scaling segmentation: {str(e)}")
-        return seg_data.astype(np.uint8)
+        return seg_data
 
 
 def crop_or_pad_to_shape(data: np.ndarray, target_shape: Tuple[int, int, int]) -> np.ndarray:
@@ -195,6 +196,34 @@ def crop_or_pad_to_shape(data: np.ndarray, target_shape: Tuple[int, int, int]) -
         result = data[tuple(slices)]
 
     return result
+
+
+def validate_segmentation_values(seg_data: np.ndarray, segmentation_type: str, converting: bool = False) -> None:
+    """Refuse data that the chosen segmentation type cannot hold (instead of letting copick narrow or reject it later).
+
+    Args:
+        seg_data: The label volume.
+        segmentation_type: ``"binary"``, ``"multilabel"`` or ``"instance"``.
+        converting: The data will be converted (binary conversion or split), so any labels are fine.
+
+    Raises:
+        ValueError: For negative or non-integral values, or a binary volume with labels other than 0 and 1.
+    """
+    data = np.asarray(seg_data)
+    if data.size == 0:
+        return
+    if data.dtype.kind == "f":
+        if not np.all(np.isfinite(data)) or not np.all(data == np.round(data)):
+            raise ValueError("Segmentation values must be whole numbers.")
+    elif data.dtype.kind not in "uib":
+        raise ValueError(f"Segmentation dtype {data.dtype} is not an integer type.")
+    if data.min() < 0:
+        raise ValueError("Segmentation values must not be negative.")
+    if segmentation_type == "binary" and not converting and data.max() > 1:
+        raise ValueError(
+            f"A binary segmentation holds only 0 and 1, but the layer has labels up to {int(data.max())}. "
+            "Enable 'Convert to binary', or save it as an instance or multilabel segmentation.",
+        )
 
 
 def split_segmentation_into_instances(seg_data: np.ndarray, session_id: str) -> List[Dict[str, Any]]:

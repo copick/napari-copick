@@ -5,12 +5,13 @@ Angstrom). A points layer has no separate shift, so it shows the centre, and kee
 instance id and score so that saving gives them back.
 """
 
-import colorsys
 from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 from copick.models import CopickLocation, CopickPoint
+from copick_shared_ui.core.types import is_filament_object
+from copick_shared_ui.util.instances import instance_colors  # noqa: F401  (re-exported for the data loader)
 
 # Features of a point placed in napari: unassigned, full score, and no copick point it came from.
 FEATURE_DEFAULTS = {"instance_id": 0, "score": 1.0, "copick_index": -1}
@@ -95,26 +96,9 @@ def reset_added_features(layer: Any, event: Any) -> None:
             features.iloc[rows, features.columns.get_loc(key)] = value
 
 
-def is_filament(obj: Any) -> bool:
-    """Whether a pickable object is declared a filament.
-
-    copick >= 1.28 has ``is_filament``; older copick carries the spec in ``metadata["copick"]["filament"]``.
-    """
-    flag = getattr(obj, "is_filament", None)
-    if isinstance(flag, bool):
-        return flag
-    metadata = getattr(obj, "metadata", None)
-    namespace = metadata.get("copick") if isinstance(metadata, dict) else None
-    return isinstance(namespace, dict) and namespace.get("filament") is not None
-
-
-def instance_colors(instance_ids: Sequence[int], base_rgba: Sequence[float]) -> np.ndarray:
-    """(N, 4) float RGBA: each instance its own hue (golden-ratio steps), unassigned (0) points the object's colour."""
-    ids = np.asarray(instance_ids, dtype=np.int64).reshape(-1)
-    colors = np.tile(np.asarray(base_rgba, dtype=float)[:4], (len(ids), 1))
-    for value in np.unique(ids[ids > 0]):
-        colors[ids == value, :3] = colorsys.hsv_to_rgb((value * 0.618033988749895) % 1.0, 0.65, 0.95)
-    return colors
+# Filament detection and instance colours are shared with the ChimeraX plugin and copick-web (copick-shared-ui), so an
+# instance ID has one colour everywhere.
+is_filament = is_filament_object
 
 
 def _column(features: Optional[pd.DataFrame], name: str, n: int) -> np.ndarray:
