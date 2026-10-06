@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import copick
 import numpy as np
 
+from napari_copick.pick_layers import TRANSFORMS_KEY, layer_to_points
 from napari_copick.storage import open_multiscale_level
 
 logger = logging.getLogger(__name__)
@@ -91,31 +92,19 @@ def save_picks_to_copick(save_params: Dict[str, Any], info_callback: Optional[Ca
             exist_ok=exist_ok,
         )
 
-        # Get the points data
-        points_data = layer.data
-
-        # Convert points to angstrom coordinates
-        # Points in napari are in (z, y, x) order
-        # We need to convert to angstrom units using the layer's scale
+        # Loaded points keep their transform (shift included), instance id and score; new points get the identity.
         scale = getattr(layer, "scale", (1.0, 1.0, 1.0))
-
-        # Convert napari points to numpy array in copick format
-        # Points in napari are in (z, y, x) order, need to convert to (x, y, z)
-        # and apply scaling to convert to angstrom units
-        positions = np.zeros((len(points_data), 3), dtype=np.float32)
-        for i, point in enumerate(points_data):
-            positions[i, 0] = point[2] * scale[2]  # x coordinate
-            positions[i, 1] = point[1] * scale[1]  # y coordinate
-            positions[i, 2] = point[0] * scale[0]  # z coordinate
-
-        # Create identity transforms since napari points don't have orientation information
-        transforms = np.tile(np.eye(4), (len(positions), 1, 1))
-
-        # Use copick's from_numpy method which follows copick conventions
-        picks.from_numpy(positions, transforms)
+        points = layer_to_points(
+            layer.data,
+            scale,
+            getattr(layer, "features", None),
+            layer.metadata.get(TRANSFORMS_KEY) if hasattr(layer, "metadata") else None,
+        )
+        picks.points = points
+        picks.store()
 
         if info_callback:
-            info_callback(f"Saved {len(positions)} picks for '{object_name}' to run '{run.name}'")
+            info_callback(f"Saved {len(points)} picks for '{object_name}' to run '{run.name}'")
 
         return True
 
