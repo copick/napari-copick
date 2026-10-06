@@ -6,9 +6,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import copick
 import numpy as np
 
-from napari_copick.storage import open_multiscale_level
-
 from napari_copick.pick_layers import TRANSFORMS_KEY, layer_to_points
+from napari_copick.storage import open_multiscale_level
 
 logger = logging.getLogger(__name__)
 
