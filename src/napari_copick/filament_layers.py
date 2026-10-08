@@ -1,7 +1,7 @@
 """napari layers for traced filaments.
 
-A filament set is shown as a points layer of its regenerated centreline samples (``out_of_slice_display`` makes them
-appear where the filament crosses the current slice, and they render as tubes in 3D). Editing adds a second points
+A filament set is shown as a points layer of its regenerated centreline samples, drawn where the filament crosses
+the current slice (see ``slicing``), which render as tubes in 3D. Editing adds a second points
 layer holding the control points, with features ``instance_id`` and ``order``. Both layers share one
 ``FilamentEditSession`` (copick-shared-ui), which owns the curves; every edit of the control layer is translated into
 session edits and both layers are redrawn from the session. A vectors layer of arrows along each filament shows its
@@ -18,6 +18,8 @@ import pandas as pd
 from copick_shared_ui.util.filament_session import FilamentEditSession
 from copick_shared_ui.util.filaments import direction_markers
 from copick_shared_ui.util.instances import instance_colors
+
+from napari_copick.slicing import points_slicing, show_points_within, vectors_near_slice
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +91,12 @@ def add_centreline_layer(viewer: Any, session: FilamentEditSession, run: Any = N
         size=_radius(session),
         face_color=colors if len(colors) else "white",
         border_width=0,
-        out_of_slice_display=True,
         features=features,
         opacity=0.8,
         metadata=metadata,
+        **points_slicing(near=True),
     )
+    show_points_within(viewer, _radius(session))
     layer.mode = "pan_zoom"
     _add_direction_layer(viewer, layer, session)
     return layer
@@ -145,7 +148,7 @@ def _add_direction_layer(viewer: Any, centreline: Any, session: FilamentEditSess
         blending="translucent_no_depth",  # drawn over the centreline samples, which would hide them in 3D
         metadata={KIND_KEY: DIRECTION_KIND, SESSION_KEY: session},
     )
-    directions.out_of_slice_display = True  # arrows show in the slices they pass through, like the centreline samples
+    vectors_near_slice(directions)  # arrows show in the slices they pass through, like the centreline samples
     centreline.metadata[DIRECTION_LAYER_KEY] = directions
     viewer.layers.selection.active = centreline  # the centreline layer stays the one the Annotate tab follows
 
@@ -172,10 +175,10 @@ def add_controls_layer(viewer: Any, session: FilamentEditSession) -> Any:
         face_color=colors if len(colors) else "white",
         border_color="white",
         border_width=0.15,
-        out_of_slice_display=False,
         features=features,
         feature_defaults={"instance_id": session.active_id, "order": -1},
         metadata={KIND_KEY: CONTROLS_KIND, SESSION_KEY: session, "copick_run": session.run},
+        **points_slicing(near=False),  # control points only in the slice they were placed in
     )
     return layer
 
