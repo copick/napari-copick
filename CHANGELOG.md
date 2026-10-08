@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.0-alpha.2](https://github.com/copick/napari-copick/compare/napari-copick-v2.0.0-alpha.1...napari-copick-v2.0.0-alpha.2) (2026-10-08)
+
+
+### ✨ Features
+
+* cut filaments and undo filament edits in napari (v2.0) ([#59](https://github.com/copick/napari-copick/issues/59)) ([bdbdf9a](https://github.com/copick/napari-copick/commit/bdbdf9a535fe08efcb7157f07d826528205a1d50))
+* filaments, instance and panoptic segmentations, annotation tools (v2.0) ([#50](https://github.com/copick/napari-copick/issues/50)) ([d09bf82](https://github.com/copick/napari-copick/commit/d09bf82580947d8178ccb4176f220eefa3928f98))
+
+
+### 🐞 Bug Fixes
+
+* keep pick ids, scores and orientations on save (v2.0) ([#48](https://github.com/copick/napari-copick/issues/48)) ([ca7a790](https://github.com/copick/napari-copick/commit/ca7a7902dd51bc887f00759a45a05474a074c003))
+* show filaments and picks near the slice on napari 0.9 (v2.0) ([#57](https://github.com/copick/napari-copick/issues/57)) ([d5f2edc](https://github.com/copick/napari-copick/commit/d5f2edc5ec0821c7ba39e8bbedd61bd85a9fe197))
+
 ## [2.0.0-alpha.1](https://github.com/copick/napari-copick/compare/napari-copick-v1.9.0...napari-copick-v2.0.0-alpha.1) (2026-10-06)
 
 
