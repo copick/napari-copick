@@ -13,6 +13,7 @@ from napari_copick.filament_layers import (
     centreline_layer_data,
     controls_from_layer,
     controls_layer_data,
+    cut_filament,
 )
 
 
@@ -106,3 +107,38 @@ def test_sync_add_move_remove(session):
     before = session.controls(1).copy()
     sync.on_data_event(_event("changing"))
     assert np.allclose(session.controls(1), before)
+
+
+def test_cut_filament_at_a_clicked_point(session):
+    # filament 1 runs through (0,0,0), (100,0,0), (200,50,0) in x, y, z; clicks come in z, y, x
+    first, second = cut_filament(session, [0.0, 3.0, 100.0])
+    assert (first, second) == (1, 3)
+    assert set(session.ids()) == {1, 2, 3}
+    assert session.can_undo
+    with pytest.raises(ValueError):
+        cut_filament(session, [0.0, 2000.0, 2000.0])  # nowhere near a filament
+
+
+def test_removing_several_points_is_one_undo_step(session):
+    cdata, cfeat, _ = controls_layer_data(session)
+    controls = FakePointsLayer(cdata, cfeat)
+    sync = ControlLayerSync(controls, None, session)
+    before = {i: session.controls(i).copy() for i in session.ids()}
+    n_steps = len(session._undo)
+
+    # delete one control point of each filament at once (napari: select both, press Delete)
+    ids = controls.features["instance_id"].to_numpy()
+    keep = np.ones(len(controls.data), dtype=bool)
+    keep[np.nonzero(ids == 1)[0][0]] = False
+    keep[np.nonzero(ids == 2)[0][0]] = False
+    controls.data = controls.data[keep]
+    controls.features = controls.features[keep].reset_index(drop=True)
+    sync.on_data_event(_event("removed", (0, 3)))
+    assert len(session.controls(1)) == 2 and len(session.controls(2)) == 1
+    assert len(session._undo) == n_steps + 1
+
+    assert session.undo() == "Remove filament points"
+    for i, cps in before.items():
+        assert np.allclose(session.controls(i), cps)
+    assert session.redo() == "Remove filament points"
+    assert len(session.controls(1)) == 2

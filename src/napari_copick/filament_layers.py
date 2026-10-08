@@ -7,6 +7,9 @@ layer holding the control points, with features ``instance_id`` and ``order``. B
 session edits and both layers are redrawn from the session. A vectors layer of arrows along each filament shows its
 direction (its point order, what "reverse" flips); it follows the centreline layer (refresh, visibility, removal).
 
+Every edit is one step of the session's undo history: one per control-layer event (an added point, a finished drag,
+the points removed together) and one per panel action (cut, join, reverse, ...).
+
 Coordinates are Angstrom in z, y, x order, matching tomograms loaded with ``scale = voxel size``.
 """
 
@@ -209,6 +212,24 @@ def controls_from_layer(layer: Any) -> Dict[int, np.ndarray]:
     return out
 
 
+def cut_tolerance(session: FilamentEditSession) -> float:
+    """How far from a centreline a cut click may be (Angstrom): a few voxels, or more for thick filaments."""
+    return max(4.0 * session.step, 1.5 * float(session.radius or 0.0))
+
+
+def cut_filament(session: FilamentEditSession, zyx) -> Tuple[int, int]:
+    """Cut the filament passing closest to a clicked point (z, y, x) in two; one undo step.
+
+    Returns the IDs of the two pieces. Raises ``ValueError`` if no filament is close enough or the cut is too close to
+    an end.
+    """
+    point = np.asarray(zyx, dtype=float)[-3:][::-1]
+    return session.cut(point, tolerance=cut_tolerance(session))
+
+
+_STEP_LABELS = {"added": "Add filament point", "changed": "Move filament point", "removed": "Remove filament points"}
+
+
 class ControlLayerSync:
     """Keeps a control layer, its session and the centreline layer in step.
 
@@ -246,10 +267,11 @@ class ControlLayerSync:
         if action not in ("added", "changed", "removed"):
             return  # ignore "adding" / "changing" (drags) / "removing"
         try:
-            if action == "added":
-                self._apply_added(getattr(event, "data_indices", ()))
-            else:
-                self._apply_layer_state()
+            with self.session.history_step(_STEP_LABELS[action]):  # one undo step per layer event
+                if action == "added":
+                    self._apply_added(getattr(event, "data_indices", ()))
+                else:
+                    self._apply_layer_state()
             message = ""
         except ValueError as e:
             message = str(e)
