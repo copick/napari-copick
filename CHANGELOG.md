@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.11.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.10.0...napari-copick-v1.11.0) (2026-10-08)
+
+
+### ✨ Features
+
+* cut filaments and undo filament edits in napari ([#58](https://github.com/copick/napari-copick/issues/58)) ([dad0fb9](https://github.com/copick/napari-copick/commit/dad0fb98c5af106c666127a07f4afb25fda0f0b4))
+
+
+### 🐞 Bug Fixes
+
+* show filaments and picks near the slice on napari 0.9 ([#56](https://github.com/copick/napari-copick/issues/56)) ([70befb7](https://github.com/copick/napari-copick/commit/70befb7fcd1c07035f5f23f685deb131c6b1b0de))
+
 ## [1.10.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.9.0...napari-copick-v1.10.0) (2026-10-06)
 
 
