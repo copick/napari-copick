@@ -35,7 +35,7 @@ dependencies = [
     "copick>=1.28.0",
     "napari-ome-zarr",
     "click",
-    "copick-shared-ui>=0.8.0",
+    "copick-shared-ui>=0.8.1",
     "napari>=0.5",
 ]
 authors = [
