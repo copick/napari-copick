@@ -33,7 +33,7 @@ dependencies = [
     "pydantic>=2",
     "copick>=2.0.0a3,<3",
     "click",
-    "copick-shared-ui>=2.0.0a3,<3",
+    "copick-shared-ui>=2.0.0a4,<3",
     "napari>=0.5",
 ]
 authors = [

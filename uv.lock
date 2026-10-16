@@ -603,7 +603,7 @@ wheels = [
 
 [[package]]
 name = "copick-shared-ui"
-version = "2.0.0a3"
+version = "2.0.0a4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "copick" },
@@ -616,9 +616,9 @@ dependencies = [
     { name = "zarr", version = "3.1.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "zarr", version = "3.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/ee/2484ff43f456ed07e7f94e1834079f60770ba8f589bcd1a3b0c9feb83d77/copick_shared_ui-2.0.0a3.tar.gz", hash = "sha256:a93ace88849a99d4eee81066a253daa5be9a2fbc0cbb80655bb0df7ddd4b3ef9", size = 358076, upload-time = "2026-10-06T08:22:15.007Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/00/2c/7908ca579c07fb0325f8e51e481b419b5e02c21305b6646b2d243b95ecf2/copick_shared_ui-2.0.0a4.tar.gz", hash = "sha256:e622b082200d713e3eaf1c920fd06e6c8af6f90e457ee98451f01218f5b67715", size = 358512, upload-time = "2026-10-16T18:53:56.292Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/b7/49f152078bfcd4701abdac02b7df8c4ce28e90c54a10b0afc26a24e7b2ac/copick_shared_ui-2.0.0a3-py3-none-any.whl", hash = "sha256:6f6ba8284637a2a98af5ee73c1599bd84d8130d1940b81c31b42375849e02fcd", size = 120288, upload-time = "2026-10-06T08:22:13.367Z" },
+    { url = "https://files.pythonhosted.org/packages/10/91/e3feee44e89e30f721b06e7d938b240443c5ca613a390daaed07e04923f3/copick_shared_ui-2.0.0a4-py3-none-any.whl", hash = "sha256:1b0738e02503c549f96a29dcf607631038ad416034d6b14752a320770406232c", size = 120546, upload-time = "2026-10-16T18:53:54.982Z" },
 ]
 
 [[package]]
@@ -1952,7 +1952,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "click" },
     { name = "copick", specifier = ">=2.0.0a3,<3" },
-    { name = "copick-shared-ui", specifier = ">=2.0.0a3,<3" },
+    { name = "copick-shared-ui", specifier = ">=2.0.0a4,<3" },
     { name = "fsspec" },
     { name = "hatch-vcs", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "hatchling", marker = "extra == 'dev'", specifier = ">=1.25.0" },
