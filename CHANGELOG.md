@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.1](https://github.com/copick/napari-copick/compare/napari-copick-v1.11.0...napari-copick-v1.11.1) (2026-10-16)
+
+
+### 🐞 Bug Fixes
+
+* require copick-shared-ui 0.8.1 ([#65](https://github.com/copick/napari-copick/issues/65)) ([e7c1f5f](https://github.com/copick/napari-copick/commit/e7c1f5fd91521db58e3289162e4feaa919933d86))
+
 ## [1.11.0](https://github.com/copick/napari-copick/compare/napari-copick-v1.10.0...napari-copick-v1.11.0) (2026-10-08)
 
 
