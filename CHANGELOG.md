@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0-alpha.3](https://github.com/copick/napari-copick/compare/napari-copick-v2.0.0-alpha.2...napari-copick-v2.0.0-alpha.3) (2026-10-16)
+
+
+### 🐞 Bug Fixes
+
+* require copick-shared-ui 2.0.0a4 ([#66](https://github.com/copick/napari-copick/issues/66)) ([e933240](https://github.com/copick/napari-copick/commit/e933240dea1a5278bc650bf1b5116a9191062c78))
+
+
+### ⚙ Continuous Integration
+
+* v2.0 release PR titles without the branch scope ([#63](https://github.com/copick/napari-copick/issues/63)) ([d577402](https://github.com/copick/napari-copick/commit/d5774021436f8b09ceea4390e175a310ca92e890))
+
 ## [2.0.0-alpha.2](https://github.com/copick/napari-copick/compare/napari-copick-v2.0.0-alpha.1...napari-copick-v2.0.0-alpha.2) (2026-10-08)
 
 
