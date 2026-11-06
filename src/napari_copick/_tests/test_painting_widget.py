@@ -43,3 +43,23 @@ def test_paint_train_accept_undo(make_napari_viewer, qtbot, run, fake_cellcanvas
     assert (layer.data == 2).sum() == 1
     widget.undo()  # the browser edit is undone from napari too
     assert layer.data[7, 11, 15] == 0
+
+
+def test_plugin_menu_widget_buttons(make_napari_viewer, qtbot, run):
+    """Built by napari from the manifest (as Plugins > copick does) and driven by real button clicks."""
+    viewer = make_napari_viewer()
+    tomogram = run.get_voxel_spacing(10.0).get_tomogram("denoised")
+    image = viewer.add_image(np.zeros((8, 12, 16), np.float32), scale=(10.0,) * 3)
+    image.metadata["copick_tomogram"] = tomogram
+    _, widget = viewer.window.add_plugin_dock_widget("napari-copick", "Paint and train with CellCanvas")
+    assert widget.viewer is not None  # injected by napari (a public proxy of viewer)
+
+    widget.open_button.click()
+    assert widget.painting_layer is not None and "opened" in widget.status.text()
+    widget.painting_layer.data[0, 0, 0] = 2
+    widget.save_button.click()
+    assert "Saved 1 changed voxels" in widget.status.text()
+    widget.load_proposal_button.click()
+    assert widget.status.text().startswith("No proposal to show")
+    widget.undo_button.click()
+    assert not widget.painting_layer.data.any()

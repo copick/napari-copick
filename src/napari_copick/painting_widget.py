@@ -12,7 +12,7 @@ Open a tomogram with the copick widget, select its image layer, then use this do
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from napari.qt.threading import create_worker
@@ -32,12 +32,16 @@ from qtpy.QtWidgets import (
 from napari_copick.cellcanvas import CellCanvasService
 from napari_copick.painting import Painting, PaintingError, Proposal
 
+if TYPE_CHECKING:
+    import napari
+
 PAINTING_KEY = "copick_painting"
 PROPOSAL_KEY = "copick_proposal"
 
 
 class PaintingWidget(QWidget):
-    def __init__(self, viewer=None, parent=None):
+    # napari injects the viewer by this exact annotation (Plugins menu / add_plugin_dock_widget).
+    def __init__(self, viewer: napari.viewer.Viewer = None, parent=None):
         super().__init__(parent)
         self.viewer = viewer
         self.painting: Optional[Painting] = None
@@ -101,11 +105,12 @@ class PaintingWidget(QWidget):
         layout.addWidget(self.status)
         layout.addStretch()
 
-        self.open_button.clicked.connect(self.open_painting)
+        # clicked(checked: bool) would otherwise arrive as the optional tomogram / proposal argument.
+        self.open_button.clicked.connect(lambda: self.open_painting())
         self.save_button.clicked.connect(self.save)
         self.undo_button.clicked.connect(self.undo)
         self.train_button.clicked.connect(self.train_and_predict)
-        self.load_proposal_button.clicked.connect(self.show_proposal)
+        self.load_proposal_button.clicked.connect(lambda: self.show_proposal())
         self.accept_button.clicked.connect(self.accept)
         self._update_buttons()
 
