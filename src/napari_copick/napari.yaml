@@ -7,6 +7,11 @@ contributions:
     - id: napari-copick.make_qwidget
       python_name: napari_copick:CopickPlugin
       title: napari copick
+    - id: napari-copick.make_painting_widget
+      python_name: napari_copick.painting_widget:PaintingWidget
+      title: Paint and train with CellCanvas
   widgets:
     - command: napari-copick.make_qwidget
       display_name: napari copick
+    - command: napari-copick.make_painting_widget
+      display_name: Paint and train with CellCanvas
